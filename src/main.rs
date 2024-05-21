@@ -1,20 +1,22 @@
 use std::env;
-use program::{Program, ProgramTaskResult};
+use program::Program;
 
 mod program;
 mod position;
+mod lexer;
+mod token;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
     let argc: i32 = args.len().try_into().unwrap();
     let program = Program::new();
-    let mut result: Result<ProgramTaskResult, String> = Ok(ProgramTaskResult::Success);
+    let mut result: Result<(), String> = Ok(());
 
     match argc {
         1 => result = program.run_repl(), 
         2 => {
             let filename = args[1].clone();
-            
+
             if filename.eq("--help") {
                 program.show_help();
             } else {

@@ -1,9 +1,10 @@
 use core::fmt;
 
+#[derive(Debug, Clone)]
 pub struct Position {
-  pub line: i32,
-  pub cstart: i32,
-  pub cend: i32
+  pub line: usize,
+  pub cstart: usize,
+  pub cend: usize
 }
 
 impl fmt::Display for Position {
