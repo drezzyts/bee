@@ -3,6 +3,8 @@
 use std::io::{self, Read, Write};
 use std::fs::File;
 
+use crate::position::Position;
+
 pub struct Program {
     had_error: bool,
 }
@@ -21,7 +23,15 @@ impl Program {
         ProgramTaskResult::Success
     }
 
-    pub fn run_repl(&self) -> ProgramTaskResult {
+    pub fn error(pos: Position, message: &str) -> String {
+        Program::report(pos, "", message)
+    }
+
+    pub fn report(pos: Position, location: &str, message: &str) -> String {
+        format!("(error) ~{location} {} --> {message}", pos.to_string())
+    }
+
+    pub fn run_repl(&self) -> Result<ProgramTaskResult, String> {
         let mut input = String::new();
 
         loop {
@@ -31,24 +41,27 @@ impl Program {
             io::stdin().read_line(&mut input).unwrap();
 
             if input.trim().eq(":q") {
-                break ProgramTaskResult::Success;
+                break;
             }
 
             input.clear();
         }
+
+        Ok(ProgramTaskResult::Success)
     }
 
-    pub fn run_file(&self, filename: &String) -> ProgramTaskResult {
+    pub fn run_file(&self, filename: &String) -> Result<ProgramTaskResult, String> {
         match File::open(filename) {
             Ok(mut file) => {
                 let mut buf = String::new();
                 file.read_to_string(&mut buf).unwrap();
                 println!("{buf}");
-                return ProgramTaskResult::Success
+                return Ok(ProgramTaskResult::Success)
             }
             Err(_) => {
-                println!("(error) --> unexpected error ocurred while reading this file");
-                return ProgramTaskResult::Failed
+                let pos = Position { line: -1, cstart: -1, cend: -1 };
+                let err = Program::error(pos, "unexpected error ocurred while reading this file");
+                return Err(err);
             }
         };
     }

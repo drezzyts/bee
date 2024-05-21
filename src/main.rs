@@ -1,12 +1,14 @@
 use std::env;
 use program::{Program, ProgramTaskResult};
+
 mod program;
+mod position;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
     let argc: i32 = args.len().try_into().unwrap();
     let program = Program::new();
-    let mut result: ProgramTaskResult = ProgramTaskResult::Success;
+    let mut result: Result<ProgramTaskResult, String> = Ok(ProgramTaskResult::Success);
 
     match argc {
         1 => result = program.run_repl(), 
@@ -23,7 +25,10 @@ fn main() {
     }
 
     match result {
-        ProgramTaskResult::Failed => panic!("(error) --> exited with failed."),
-        ProgramTaskResult::Success => println!("(log) --> exited with success.")
+        Ok(_) => println!("(log) --> exited with success."),
+        Err(err) => {
+            println!("{}", err);
+            panic!("(error) --> exited with failed.")
+        }
     }
 }
