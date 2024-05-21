@@ -2,7 +2,7 @@
 
 use std::io::{self, Read, Write};
 use std::fs::File;
-use std::process::Termination;
+
 pub struct Program {
     had_error: bool,
 }
