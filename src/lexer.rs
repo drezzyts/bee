@@ -15,7 +15,6 @@ pub struct Lexer {
 #[cfg(test)]
 mod tests {
     use crate::token::TokenKind;
-
     use super::Lexer;
 
     #[test]
@@ -123,6 +122,32 @@ mod tests {
         assert_eq!(lexer.tokens[0].kind, TokenKind::Integer);
         assert_eq!(lexer.tokens[1].kind, TokenKind::Float);
         assert_eq!(lexer.tokens[2].kind, TokenKind::Eof);
+    }
+
+    #[test]
+    fn lex_keywords() {
+        let source = r#" and class else false fun for if none or puts return super this true let while"#;
+        let mut lexer = Lexer::new(&source.to_string());
+        lexer.read_tokens().unwrap();
+
+        assert_eq!(lexer.tokens.len(), 17);
+        assert_eq!(lexer.tokens[0].kind, TokenKind::And);
+        assert_eq!(lexer.tokens[1].kind, TokenKind::Class);
+        assert_eq!(lexer.tokens[2].kind, TokenKind::Else);
+        assert_eq!(lexer.tokens[3].kind, TokenKind::False);
+        assert_eq!(lexer.tokens[4].kind, TokenKind::Fun);
+        assert_eq!(lexer.tokens[5].kind, TokenKind::For);
+        assert_eq!(lexer.tokens[6].kind, TokenKind::If);
+        assert_eq!(lexer.tokens[7].kind, TokenKind::None);
+        assert_eq!(lexer.tokens[8].kind, TokenKind::Or);
+        assert_eq!(lexer.tokens[9].kind, TokenKind::Puts);
+        assert_eq!(lexer.tokens[10].kind, TokenKind::Return);
+        assert_eq!(lexer.tokens[11].kind, TokenKind::Super);
+        assert_eq!(lexer.tokens[12].kind, TokenKind::This);
+        assert_eq!(lexer.tokens[13].kind, TokenKind::True);
+        assert_eq!(lexer.tokens[14].kind, TokenKind::Let);
+        assert_eq!(lexer.tokens[15].kind, TokenKind::While);
+        assert_eq!(lexer.tokens[16].kind, TokenKind::Eof);
     }
 }
 
@@ -328,7 +353,14 @@ impl Lexer {
             self.next();
         }
 
-        self.push_token(TokenKind::Identifier, None);
+        let lexeme = &self.source[self.start..self.current];
+
+        if let Some(kind) = Token::get_keyword(lexeme) {
+            self.push_token(kind, None);
+        } else {
+            self.push_token(TokenKind::Identifier, None);
+        };
+
         Ok(())
     }
 
