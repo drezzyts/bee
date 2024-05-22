@@ -1,5 +1,5 @@
 use crate::{
-    position::{self, Position},
+    position::Position,
     program::Program,
     token::{Token, TokenKind, TokenLiteralValue},
 };
@@ -10,6 +10,120 @@ pub struct Lexer {
     start: usize,
     current: usize,
     line: usize,
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::token::TokenKind;
+
+    use super::Lexer;
+
+    #[test]
+    fn lex_punctuators() {
+        let source = "{ } ( ) . , ;";
+        let mut lexer = Lexer::new(&source.to_string());
+        lexer.read_tokens().unwrap();
+
+        assert_eq!(lexer.tokens.len(), 8);
+        assert_eq!(lexer.tokens[0].kind, TokenKind::LeftBrace);
+        assert_eq!(lexer.tokens[1].kind, TokenKind::RightBrace);
+        assert_eq!(lexer.tokens[2].kind, TokenKind::LeftParen);
+        assert_eq!(lexer.tokens[3].kind, TokenKind::RightParen);
+        assert_eq!(lexer.tokens[4].kind, TokenKind::Dot);
+        assert_eq!(lexer.tokens[5].kind, TokenKind::Comma);
+        assert_eq!(lexer.tokens[6].kind, TokenKind::SemiColon);
+        assert_eq!(lexer.tokens[7].kind, TokenKind::Eof);
+    }
+
+    #[test]
+    fn lex_math_operators() {
+        let source = "+ - / *";
+        let mut lexer = Lexer::new(&source.to_string());
+        lexer.read_tokens().unwrap();
+
+        assert_eq!(lexer.tokens.len(), 5);
+        assert_eq!(lexer.tokens[0].kind, TokenKind::Plus);
+        assert_eq!(lexer.tokens[1].kind, TokenKind::Minus);
+        assert_eq!(lexer.tokens[2].kind, TokenKind::Slash);
+        assert_eq!(lexer.tokens[3].kind, TokenKind::Star);
+        assert_eq!(lexer.tokens[4].kind, TokenKind::Eof);
+    }
+
+    #[test]
+    fn lex_bool_operators() {
+        let source = "> < >= <= != == = !";
+        let mut lexer = Lexer::new(&source.to_string());
+        lexer.read_tokens().unwrap();
+
+        assert_eq!(lexer.tokens.len(), 9);
+        assert_eq!(lexer.tokens[0].kind, TokenKind::Greater);
+        assert_eq!(lexer.tokens[1].kind, TokenKind::Less);
+        assert_eq!(lexer.tokens[2].kind, TokenKind::GreaterEqual);
+        assert_eq!(lexer.tokens[3].kind, TokenKind::LessEqual);
+        assert_eq!(lexer.tokens[4].kind, TokenKind::BangEqual);
+        assert_eq!(lexer.tokens[5].kind, TokenKind::EqualEqual);
+        assert_eq!(lexer.tokens[6].kind, TokenKind::Equal);
+        assert_eq!(lexer.tokens[7].kind, TokenKind::Bang);
+        assert_eq!(lexer.tokens[8].kind, TokenKind::Eof);
+    }
+
+    #[test]
+    fn lex_string() {
+        let source = r#""Hello World!"
+        "Hello,
+              World!""#;
+        let mut lexer = Lexer::new(&source.to_string());
+        lexer.read_tokens().unwrap();
+
+        assert_eq!(lexer.tokens.len(), 3);
+        assert_eq!(lexer.tokens[0].kind, TokenKind::String);
+        assert_eq!(lexer.tokens[1].kind, TokenKind::String);
+        assert_eq!(lexer.tokens[2].kind, TokenKind::Eof);
+    }
+
+    #[test]
+    fn lex_char() {
+        let source = r#"'a'
+        '1'"#;
+        let mut lexer = Lexer::new(&source.to_string());
+        lexer.read_tokens().unwrap();
+
+        assert_eq!(lexer.tokens.len(), 3);
+        assert_eq!(lexer.tokens[0].kind, TokenKind::Char);
+        assert_eq!(lexer.tokens[1].kind, TokenKind::Char);
+        assert_eq!(lexer.tokens[2].kind, TokenKind::Eof);
+    }
+
+    #[test]
+    fn lex_identifiers() {
+        let source = r#"abc
+        _abc
+        num1
+        "#;
+        let mut lexer = Lexer::new(&source.to_string());
+        lexer.read_tokens().unwrap();
+
+        assert_eq!(lexer.tokens.len(), 4);
+        assert_eq!(lexer.tokens[0].kind, TokenKind::Identifier);
+        assert_eq!(lexer.tokens[1].kind, TokenKind::Identifier);
+        assert_eq!(lexer.tokens[2].kind, TokenKind::Identifier);
+        assert_eq!(lexer.tokens[3].kind, TokenKind::Eof);
+    }
+
+    
+    #[test]
+    fn lex_numbers() {
+        let source = r#"11
+        5.5
+        "#;
+        let mut lexer = Lexer::new(&source.to_string());
+        lexer.read_tokens().unwrap();
+
+        assert_eq!(lexer.tokens.len(), 3);
+        assert_eq!(lexer.tokens[0].kind, TokenKind::Integer);
+        assert_eq!(lexer.tokens[1].kind, TokenKind::Float);
+        assert_eq!(lexer.tokens[2].kind, TokenKind::Eof);
+    }
 }
 
 impl Lexer {

@@ -2,10 +2,10 @@ use crate::position::Position;
 
 #[derive(Debug, Clone)]
 pub struct Token {
-  kind: TokenKind,
-  lexeme: String,
-  value: Option<TokenLiteralValue>, 
-  position: Position
+  pub kind: TokenKind,
+  pub lexeme: String,
+  pub value: Option<TokenLiteralValue>, 
+  pub position: Position
 }
 
 impl Token {
@@ -22,7 +22,7 @@ pub enum TokenLiteralValue {
   String(String),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum TokenKind {
     // Punctuators
     LeftParen,
