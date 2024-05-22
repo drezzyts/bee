@@ -18,8 +18,8 @@ impl Token {
 pub enum TokenLiteralValue {
   Integer(i64),
   Float(f64),
+  Char(char),
   String(String),
-  Identifier(String)
 }
 
 #[derive(Debug, Clone)]
@@ -50,6 +50,7 @@ pub enum TokenKind {
     // Literals.
     Identifier,
     String,
+    Char,
     Float,
     Integer,
 

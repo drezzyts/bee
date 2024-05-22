@@ -50,7 +50,7 @@ impl Program {
             }
 
             if let Err(error) = self.run(&input) {
-                return Err(error)
+                println!("{error}");
             }
 
             input.clear();
