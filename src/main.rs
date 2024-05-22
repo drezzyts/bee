@@ -5,6 +5,8 @@ mod program;
 mod position;
 mod lexer;
 mod token;
+mod expressions;
+mod visitors;
 
 fn main() {
     let args: Vec<String> = env::args().collect();

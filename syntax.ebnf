@@ -1,0 +1,6 @@
+expression => literal | unary | binary | group ;
+literal => FLOAT | INTEGER | STRING | "true" | "false" | "nil" ;
+operator => "+" | "-" | "/" | "*" | "<" | ">" | "==" | "<=" | ">=" | "!=" ;
+unary => ( "-" | "!" ) expression ;
+binary => expression operator expression ;
+group => "(" expression ")" ;
