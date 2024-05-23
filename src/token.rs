@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::position::Position;
+use crate::{expressions::LiteralValue, position::Position};
 
 #[derive(Debug, Clone)]
 pub struct Token {
@@ -24,7 +24,7 @@ impl Token {
       ("fun", TokenKind::Fun),
       ("for", TokenKind::For),
       ("if", TokenKind::If),
-      ("none", TokenKind::None),
+      ("nil", TokenKind::Nil),
       ("or", TokenKind::Or),
       ("puts", TokenKind::Puts),
       ("return", TokenKind::Return),
@@ -49,6 +49,19 @@ pub enum TokenLiteralValue {
   Float(f64),
   Char(char),
   String(String),
+}
+
+#[allow(unreachable_patterns)]
+impl TokenLiteralValue {
+  pub fn to_literal_value(&self) -> LiteralValue {
+    match self {
+      TokenLiteralValue::Integer(val) => LiteralValue::Integer(val.clone()),
+      TokenLiteralValue::Float(val) => LiteralValue::Float(val.clone()),
+      TokenLiteralValue::Char(val) => LiteralValue::Char(val.clone()),
+      TokenLiteralValue::String(val) => LiteralValue::String(val.clone()),
+      _ => unreachable!()
+    }
+  }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -91,7 +104,7 @@ pub enum TokenKind {
     Fun,
     For,
     If,
-    None,
+    Nil,
     Or,
     Puts,
     Return,

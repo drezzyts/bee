@@ -4,7 +4,9 @@ use std::io::{self, Read, Write};
 use std::fs::File;
 
 use crate::lexer::Lexer;
+use crate::parser::Parser;
 use crate::position::Position;
+use crate::visitors::PrinterVisitor;
 
 pub struct Program;
 
@@ -18,6 +20,11 @@ impl Program {
         
         match lexer.read_tokens() {
             Ok(tokens) => {
+                let mut parser = Parser::new(tokens.clone());
+                let program = parser.parse()?;
+                let mut printer = PrinterVisitor::new();
+                println!("{}", printer.print(&program));
+                
                 for token in tokens {
                     println!("{:?}", token);
                 }

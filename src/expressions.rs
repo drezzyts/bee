@@ -3,6 +3,7 @@ use crate::{
     visitors::{ExpressionVisitable, ExpressionVisitor},
 };
 
+#[derive(Debug)]
 pub enum Expression {
     Binary(BinaryExpression),
     Group(GroupExpression),
@@ -23,6 +24,7 @@ impl<T> ExpressionVisitable<T> for Expression {
   }
 }
 
+#[derive(Debug)]
 pub enum LiteralValue {
     Float(f64),
     Integer(i64),
@@ -33,23 +35,27 @@ pub enum LiteralValue {
     Nil,
 }
 
+#[derive(Debug)]
 pub struct BinaryExpression {
     pub left: Box<Expression>,
     pub operator: Token,
     pub right: Box<Expression>,
 }
 
+#[derive(Debug)]
 pub struct GroupExpression {
     pub left: Token,
     pub expr: Box<Expression>,
     pub right: Token,
 }
 
+#[derive(Debug)]
 pub struct LiteralExpression {
     pub token: Token,
     pub value: LiteralValue,
 }
 
+#[derive(Debug)]
 pub struct UnaryExpression {
     pub operator: Token,
     pub right: Box<Expression>,
