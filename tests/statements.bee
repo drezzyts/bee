@@ -1,0 +1,6 @@
+// Echo Statement
+echo "Hello, World";
+echo 10 * 5;
+
+// Expression Statement;
+10 * 5;

@@ -1,6 +1,6 @@
 program = statement* EOF ;
-statement = expression_statement | puts_statement ;
-puts_statement = "puts" expression ";" ;
+statement = expression_statement | echo_statement ;
+echo_statement = "echo" expression ";" ;
 expression_statement = expression ";" ;
 expression = equality;
 equality = comparison ( ( "!=" | "==") comparison )* ;

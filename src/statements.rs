@@ -3,7 +3,7 @@ use crate::{expressions::Expression, visitors::{StatementVisitable, StatementVis
 #[derive(Debug, Clone)]
 pub enum Statement {
     Expression(ExpressionStatement),
-    Puts(PutsStatement),
+    Echo(EchoStatement),
 }
 
 #[allow(unreachable_patterns)]
@@ -11,7 +11,7 @@ impl<T> StatementVisitable<T> for Statement {
   fn accept(&self, visitor: &mut dyn StatementVisitor<T>) -> T {
       match self {
         Statement::Expression(expr) => visitor.visit_expr_stmt(expr),
-        Statement::Puts(expr) => visitor.visit_puts_stmt(expr),
+        Statement::Echo(expr) => visitor.visit_echo_stmt(expr),
         _ => unimplemented!()
       }
   }
@@ -28,11 +28,11 @@ impl ExpressionStatement {
 }
 
 #[derive(Debug, Clone)]
-pub struct PutsStatement {
+pub struct EchoStatement {
   pub expression: Box<Expression>
 }
 
-impl PutsStatement {
+impl EchoStatement {
   pub fn new(expression: Box<Expression>) -> Self {
     Self { expression }
   }

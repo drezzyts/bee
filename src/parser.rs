@@ -2,7 +2,7 @@ use crate::{
     expressions::{
         BinaryExpression, Expression, GroupExpression, LiteralExpression, LiteralValue,
         UnaryExpression,
-    }, program::Program, statements::{ExpressionStatement, PutsStatement, Statement}, token::{Token, TokenKind}
+    }, program::Program, statements::{ExpressionStatement, EchoStatement, Statement}, token::{Token, TokenKind}
 };
 
 pub struct Parser {
@@ -26,19 +26,19 @@ impl Parser {
     }
 
     fn statement(&mut self) -> Result<Statement, String> {
-        if self.is_curr(TokenKind::Puts) {
-            self.puts_stmt()
+        if self.is_curr(TokenKind::Echo) {
+            self.echo_stmt()
         } else {
             self.expression_stmt()
         }
     }
 
-    fn puts_stmt(&mut self) -> Result<Statement, String> {
+    fn echo_stmt(&mut self) -> Result<Statement, String> {
         self.next();
         let expression = self.expression()?;
         self.eat(TokenKind::SemiColon)?;
-        let statement = PutsStatement::new(Box::new(expression));
-        Ok(Statement::Puts(statement))
+        let statement = EchoStatement::new(Box::new(expression));
+        Ok(Statement::Echo(statement))
     }
 
     fn expression_stmt(&mut self) -> Result<Statement, String> {
