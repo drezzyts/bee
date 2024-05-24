@@ -10,6 +10,7 @@ mod visitors;
 mod parser;
 mod interpreter;
 mod statements;
+mod enviroment;
 
 fn main() {
     let args: Vec<String> = env::args().collect();

@@ -3,7 +3,8 @@
 use std::io::{self, Read, Write};
 use std::fs::File;
 
-use crate::interpreter::Interpreter;
+use crate::enviroment::{self, Enviroment};
+use crate::interpreter::{self, Interpreter};
 use crate::lexer::Lexer;
 use crate::parser::Parser;
 use crate::position::Position;
@@ -11,37 +12,39 @@ use crate::visitors::PrinterVisitor;
 
 pub struct Program {
     pub print_tokens: bool,
-    pub print_ast: bool
+    pub print_ast: bool,
+    pub interpreter: Interpreter
 }
 
 impl Program {
     pub fn new() -> Self {
-        Self { print_ast: false, print_tokens: false }
+        Self { print_ast: false, print_tokens: false, interpreter: Interpreter::new() }
     }
 
-    fn run(&self, source: &String) -> Result<(), String> {
+    fn run(&mut self, source: &String) -> Result<(), String> {
         let mut lexer = Lexer::new(source);
         
         match lexer.read_tokens() {
             Ok(tokens) => {
+                let mut parser = Parser::new(tokens.clone());
+                let mut printer = PrinterVisitor::new(&mut self.interpreter.enviroment);
+
                 if self.print_tokens {
                     for token in tokens.clone() {
                         println!("{:?}", token);
                     }
                 }
 
-                let mut parser = Parser::new(tokens);
                 let program = parser.parse()?;
                 
-                let mut printer = PrinterVisitor::new();
                 if self.print_ast {
                     for stmt in program.clone() {
                         println!("{}", printer.print(&stmt));
                     }
                 }
 
-                let mut interpreter = Interpreter;
-                let result = interpreter.interpret(program);
+                
+                let result = self.interpreter.interpret(program);
 
                 Ok(())
             },
@@ -96,7 +99,7 @@ impl Program {
         Ok(())
     }
 
-    pub fn run_file(&self, filename: &String) -> Result<(), String> {
+    pub fn run_file(&mut self, filename: &String) -> Result<(), String> {
         match File::open(filename) {
             Ok(mut file) => {
                 let mut buf = String::new();

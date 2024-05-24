@@ -1,8 +1,5 @@
 use crate::{
-    expressions::{
-        BinaryExpression, Expression, GroupExpression, LiteralExpression, LiteralValue,
-        UnaryExpression,
-    }, program::Program, statements::{ExpressionStatement, EchoStatement, Statement}, token::{Token, TokenKind}
+    expressions::{self, AssignmentExpression, Expression, *}, program::Program, statements::{EchoStatement, ExpressionStatement, Statement, VariableStatement}, token::{self, Token, TokenKind}
 };
 
 pub struct Parser {
@@ -19,10 +16,50 @@ impl Parser {
         let mut statements: Vec<Statement> = vec![];
 
         while !self.is_eof() {
-            statements.push(self.statement()?);
+            statements.push(self.declaration()?);
         }
 
         Ok(statements)
+    }
+
+    fn synchronize(&mut self) -> () {
+        todo!()
+    }
+
+    fn declaration(&mut self) -> Result<Statement, String> {
+        let result = if self.is_curr(TokenKind::Mut) {
+            self.var_declaration()
+        } else {
+            self.statement()
+        };
+
+        match result {
+            Ok(stmt) => Ok(stmt),
+            Err(a) => Err(a), //self.synchronize()
+        }   
+    }
+
+    fn var_declaration(&mut self) -> Result<Statement, String> {
+        self.eat(TokenKind::Mut)?;
+
+        let constant = if self.is_curr(TokenKind::Optional) {
+            self.next();
+            true
+        } else {
+            false
+        };
+        
+        let name = self.eat(TokenKind::Identifier)?;
+        let initializer: Option<Expression> = if self.is_curr(TokenKind::Equal) {
+            self.eat(TokenKind::Equal)?;
+            Some(self.expression()?)
+        } else {
+            None
+        }; 
+        self.eat(TokenKind::SemiColon)?;
+
+        let stmt = VariableStatement::new(name, initializer, constant);
+        Ok(Statement::Variable(stmt))
     }
 
     fn statement(&mut self) -> Result<Statement, String> {
@@ -34,7 +71,7 @@ impl Parser {
     }
 
     fn echo_stmt(&mut self) -> Result<Statement, String> {
-        self.next();
+        self.eat(TokenKind::Echo)?;
         let expression = self.expression()?;
         self.eat(TokenKind::SemiColon)?;
         let statement = EchoStatement::new(Box::new(expression));
@@ -49,7 +86,28 @@ impl Parser {
     }
 
     fn expression(&mut self) -> Result<Expression, String> {
-        self.equality()
+        self.assignment_expr()
+    }
+
+    fn assignment_expr(&mut self) -> Result<Expression, String> {
+        let expression = self.equality()?;
+
+        
+
+        if self.is_curr(TokenKind::Equal) {
+            let equals = self.next();
+            let value = self.assignment_expr()?;
+
+            match expression {
+                Expression::Variable(expr) => {
+                    let assignment = AssignmentExpression::new(expr.name.clone(), Box::new(value));
+                    return Ok(Expression::Assignment(assignment));
+                },
+                _ => return Err(Program::report(equals.position.clone(), "parser", "invalid assignment target has founded while parsing."))
+            }
+        }
+
+        Ok(expression)
     }
 
     fn equality(&mut self) -> Result<Expression, String> {
@@ -146,6 +204,11 @@ impl Parser {
                 let expression = GroupExpression::new(left, Box::new(expr), right);
                 Ok(Expression::Group(expression))
             },
+            TokenKind::Identifier => {
+                let name: Token = self.eat(TokenKind::Identifier)?;
+                let expression = VariableExpression::new(name);
+                Ok(Expression::Variable(expression))
+            }
             TokenKind::Eof => {
                 Err(Program::report(self.peek().position, "parser", "unexpected end of input."))
             }

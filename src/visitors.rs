@@ -1,8 +1,7 @@
 use crate::{
-    expressions::{
-        BinaryExpression, GroupExpression, LiteralExpression, LiteralValue, UnaryExpression,
-    },
-    statements::{EchoStatement, ExpressionStatement, Statement},
+    enviroment::Enviroment, expressions::{
+        AssignmentExpression, BinaryExpression, GroupExpression, LiteralExpression, LiteralValue, UnaryExpression, VariableExpression
+    }, statements::{EchoStatement, ExpressionStatement, Statement, VariableStatement}
 };
 
 pub trait ExpressionVisitor<T> {
@@ -10,6 +9,8 @@ pub trait ExpressionVisitor<T> {
     fn visit_group_expr(&mut self, expr: &GroupExpression) -> T;
     fn visit_literal_expr(&mut self, expr: &LiteralExpression) -> T;
     fn visit_unary_expr(&mut self, expr: &UnaryExpression) -> T;
+    fn visit_var_expr(&mut self, expr: &VariableExpression) -> T;
+    fn visit_assignment_expr(&mut self, expr: &AssignmentExpression) -> T;
 }
 
 pub trait ExpressionVisitable<T> {
@@ -17,8 +18,9 @@ pub trait ExpressionVisitable<T> {
 }
 
 pub trait StatementVisitor<T> {
-    fn visit_expr_stmt(&mut self, expr: &ExpressionStatement) -> T;
-    fn visit_echo_stmt(&mut self, expr: &EchoStatement) -> T;
+    fn visit_expr_stmt(&mut self, stmt: &ExpressionStatement) -> T;
+    fn visit_echo_stmt(&mut self, stmt: &EchoStatement) -> T;
+    fn visit_var_stmt(&mut self, stmt: &VariableStatement) -> T;
 }
 
 pub trait StatementVisitable<T> {
@@ -27,11 +29,12 @@ pub trait StatementVisitable<T> {
 
 pub struct PrinterVisitor {
     indent_level: usize,
+    enviroment: *mut Enviroment
 }
 
 impl PrinterVisitor {
-    pub fn new() -> Self {
-        Self { indent_level: 1 }
+    pub fn new(enviroment: &mut Enviroment) -> Self {
+        Self { indent_level: 1, enviroment: enviroment }
     }
 
     fn indent(&self) -> String {
@@ -103,6 +106,28 @@ impl ExpressionVisitor<String> for PrinterVisitor {
             LiteralValue::NaN => String::from("nan"),
         }
     }
+
+    fn visit_var_expr(&mut self, expr: &VariableExpression) -> String {
+        unsafe { 
+            let value = self.enviroment.as_ref().unwrap().get(expr.name.lexeme.clone());
+            match &value {
+                LiteralValue::Float(value) => format!("{:?}", value),
+                LiteralValue::Integer(value) => format!("{}", value),
+                LiteralValue::String(value) => format!("\"{}\"", value),
+                LiteralValue::Char(value) => format!("'{}'", value),
+                LiteralValue::Nil => String::from("nil"),
+                LiteralValue::True => String::from("true"),
+                LiteralValue::False => String::from("false"),
+                LiteralValue::NaN => String::from("nan"),
+            }
+        }
+    }
+    
+    fn visit_assignment_expr(&mut self, expr: &AssignmentExpression) -> String {
+        let value = expr.value.accept(self);
+
+        format!("(Assignment Expression) --> {} = {}", expr.name.lexeme.clone(), value)
+    }
 }
 
 impl StatementVisitor<String> for PrinterVisitor {
@@ -120,5 +145,19 @@ impl StatementVisitor<String> for PrinterVisitor {
         self.indent_level -= 1;
 
         format!("(Echo Statement):\n{}{}", self.indent(), expression)
+    }
+
+    fn visit_var_stmt(&mut self, stmt: &VariableStatement) -> String {
+        self.indent_level += 1;
+        
+        let expression = if let Some(initializer) = stmt.initializer.clone() {
+            initializer.accept(self)
+        } else {
+            String::from("nil")
+        };
+
+        self.indent_level -= 1;
+
+        format!("(Variable Statement):\n{}{}", self.indent(), expression)
     }
 }

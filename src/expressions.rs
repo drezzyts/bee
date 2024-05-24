@@ -9,8 +9,34 @@ pub enum Expression {
     Group(GroupExpression),
     Literal(LiteralExpression),
     Unary(UnaryExpression),
+    Variable(VariableExpression),
+    Assignment(AssignmentExpression)
 }
 
+impl Expression {
+    pub fn eq_kind(&self, expr: Expression) -> bool {
+        match (self, expr) {
+            (Expression::Binary(_), Expression::Binary(_)) => true,
+            (Expression::Group(_), Expression::Group(_)) => true,
+            (Expression::Literal(_), Expression::Literal(_)) => true,
+            (Expression::Unary(_), Expression::Unary(_)) => true,
+            (Expression::Variable(_), Expression::Variable(_)) => true,
+            (Expression::Assignment(_), Expression::Assignment(_)) => true,
+            _ => false
+        }
+    }
+
+    pub fn kind(&self) -> &str {
+        match self {
+            Expression::Binary(_) => "Binary",
+            Expression::Group(_) => "Group",
+            Expression::Literal(_) => "Literal",
+            Expression::Unary(_) => "Unary",
+            Expression::Variable(_) => "Variable",
+            Expression::Assignment(_) => "Assignment",
+        }
+    }
+}
 impl<T> ExpressionVisitable<T> for Expression {
     fn accept(&self, visitor: &mut dyn ExpressionVisitor<T>) -> T {
         match self {
@@ -18,6 +44,8 @@ impl<T> ExpressionVisitable<T> for Expression {
             Expression::Group(expr) => visitor.visit_group_expr(expr),
             Expression::Literal(expr) => visitor.visit_literal_expr(expr),
             Expression::Unary(expr) => visitor.visit_unary_expr(expr),
+            Expression::Variable(expr) => visitor.visit_var_expr(expr),
+            Expression::Assignment(expr) => visitor.visit_assignment_expr(expr)
         }
     }
 }
@@ -229,5 +257,29 @@ pub struct UnaryExpression {
 impl UnaryExpression {
     pub fn new(operator: Token, right: Box<Expression>) -> Self {
         Self { operator, right }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct VariableExpression {
+    pub name: Token,
+}
+
+impl VariableExpression {
+    pub fn new(name: Token) -> Self {
+        Self { name }
+    }
+}
+
+
+#[derive(Debug, Clone)]
+pub struct AssignmentExpression {
+    pub name: Token,
+    pub value: Box<Expression>
+}
+
+impl AssignmentExpression {
+    pub fn new(name: Token, value: Box<Expression>) -> Self {
+        Self { name, value }
     }
 }

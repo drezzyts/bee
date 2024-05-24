@@ -78,6 +78,7 @@ pub enum TokenKind {
     SemiColon,
     Slash,
     Star,
+    Optional,
 
     // Operators
     Bang,

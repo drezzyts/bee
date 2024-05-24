@@ -1,11 +1,17 @@
-program = statement* EOF ;
+program = declaration* EOF ;
+
+declaration = var_declaration | statement;
+var_declaration = "mut" "?"? IDENTIFIER ( "=" expression )? ";" ; 
+
 statement = expression_statement | echo_statement ;
 echo_statement = "echo" expression ";" ;
 expression_statement = expression ";" ;
-expression = equality;
+
+expression = assignment ;
+assignment = IDENTIFIER "=" assignment | equality ;
 equality = comparison ( ( "!=" | "==") comparison )* ;
 comparsion = term ( (">" | ">=" | "<" | "<=") term)* ;
 term = factor ( ("-" | "+") factor )* ;
 factor = unary ( ("/" | "*") unary )* ;
 unary = ( "-" | "!" ) unary | primary ;
-primary = NUMBER | STRING | "true" | "false" | "nil" | group ;
+primary = NUMBER | STRING | "true" | "false" | "nil" | group | IDENTIFIER;

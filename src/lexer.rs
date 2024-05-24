@@ -193,6 +193,7 @@ impl Lexer {
             '-' => self.push_token(TokenKind::Minus, None),
             '+' => self.push_token(TokenKind::Plus, None),
             '*' => self.push_token(TokenKind::Star, None),
+            '?' => self.push_token(TokenKind::Optional, None),
             '!' => {
                 if self.check_next('=') {
                     self.push_token(TokenKind::BangEqual, None)

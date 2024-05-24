@@ -1,13 +1,15 @@
 use crate::{
-    expressions::{Expression, LiteralExpression, LiteralValue},
-    statements::{EchoStatement, ExpressionStatement, Statement},
-    token::TokenKind,
-    visitors::{ExpressionVisitable, ExpressionVisitor, StatementVisitable, StatementVisitor},
+    enviroment::{self, Enviroment}, expressions::{AssignmentExpression, Expression, LiteralExpression, LiteralValue, VariableExpression}, position::Position, statements::{EchoStatement, ExpressionStatement, Statement, VariableStatement}, token::TokenKind, visitors::{ExpressionVisitable, ExpressionVisitor, StatementVisitable, StatementVisitor}
 };
 
-pub struct Interpreter;
+pub struct Interpreter {
+    pub enviroment: Enviroment
+}
 
 impl Interpreter {
+    pub fn new() -> Self {
+        Self { enviroment: Enviroment::new() }
+    }
     pub fn interpret(&mut self, program: Vec<Statement>) -> () {
         for stmt in program {
             self.execute(stmt);
@@ -79,6 +81,16 @@ impl ExpressionVisitor<LiteralValue> for Interpreter {
             _ => unreachable!(),
         }
     }
+
+    fn visit_var_expr(&mut self, expr: &VariableExpression) -> LiteralValue {
+        self.enviroment.get(expr.name.lexeme.clone())
+    }
+    
+    fn visit_assignment_expr(&mut self, expr: &AssignmentExpression) -> LiteralValue {
+        let value = self.evaluate(*expr.value.clone());
+        self.enviroment.assign(expr.name.lexeme.clone(), value.clone());
+        value
+    }
 }
 
 impl StatementVisitor<()> for Interpreter {
@@ -101,5 +113,15 @@ impl StatementVisitor<()> for Interpreter {
       };
 
       println!("{response}");
+    }
+    
+    fn visit_var_stmt(&mut self, stmt: &VariableStatement) -> () {
+        let value = if let Some(initializer) = stmt.initializer.clone() {
+            self.evaluate(initializer)
+        } else {
+            LiteralValue::Nil
+        };
+
+        self.enviroment.define(stmt.name.lexeme.clone(), value);
     }
 }
