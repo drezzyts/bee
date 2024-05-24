@@ -96,15 +96,15 @@ impl Parser {
     fn primary(&mut self) -> Result<Expression, String> {
         match self.peek().kind {
             TokenKind::True => {
-                let expression = LiteralExpression::new(LiteralValue::True, self.peek());
+                let expression = LiteralExpression::new(LiteralValue::True, self.next());
                 Ok(Expression::Literal(expression))
             }
             TokenKind::False => {
-                let expression = LiteralExpression::new(LiteralValue::False, self.peek());
+                let expression = LiteralExpression::new(LiteralValue::False, self.next());
                 Ok(Expression::Literal(expression))
             }
             TokenKind::Nil => {
-                let expression = LiteralExpression::new(LiteralValue::Nil, self.peek());
+                let expression = LiteralExpression::new(LiteralValue::Nil, self.next());
                 Ok(Expression::Literal(expression))
             }
             TokenKind::Integer | TokenKind::Float | TokenKind::Char | TokenKind::String => {
