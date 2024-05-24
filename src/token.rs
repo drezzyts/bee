@@ -31,7 +31,7 @@ impl Token {
       ("super", TokenKind::Super),
       ("this", TokenKind::This),
       ("true", TokenKind::True),
-      ("let", TokenKind::Let),
+      ("mut", TokenKind::Mut),
       ("while", TokenKind::While),
     ]);
 
@@ -111,7 +111,7 @@ pub enum TokenKind {
     Super,
     This,
     True,
-    Let,
+    Mut,
     While,
 
     // Others

@@ -1,6 +1,5 @@
-use std::ops::Deref;
 
-use crate::expressions::{self, BinaryExpression, Expression, GroupExpression, LiteralExpression, LiteralValue, UnaryExpression};
+use crate::{expressions::{BinaryExpression, Expression, GroupExpression, LiteralExpression, LiteralValue, UnaryExpression}, statements::{ExpressionStatement, PutsStatement, Statement}};
 
 pub trait ExpressionVisitor<T> {
     fn visit_binary_expr(&mut self, expr: &BinaryExpression) -> T;
@@ -12,6 +11,16 @@ pub trait ExpressionVisitor<T> {
 pub trait ExpressionVisitable<T> {
     fn accept(&self, visitor: &mut dyn ExpressionVisitor<T>) -> T;
 }
+
+pub trait StatementVisitor<T> {
+    fn visit_expr_stmt(&mut self, expr: &ExpressionStatement) -> T;
+    fn visit_puts_stmt(&mut self, expr: &PutsStatement) -> T;
+}
+
+pub trait StatementVisitable<T> {
+    fn accept(&self, visitor: &mut dyn StatementVisitor<T>) -> T;
+}
+
 pub struct PrinterVisitor {
   indent_level: usize,
 }
@@ -25,8 +34,8 @@ impl PrinterVisitor {
       "\t".repeat(self.indent_level)
   }
 
-  pub fn print(&mut self, expr: &Expression) -> String {
-      expr.accept(self as &mut dyn ExpressionVisitor<String>)
+  pub fn print(&mut self, stmt: &Statement) -> String {
+      stmt.accept(self as &mut dyn StatementVisitor<String>)
   }
 }
 
@@ -90,4 +99,30 @@ impl ExpressionVisitor<String> for PrinterVisitor {
           LiteralValue::NaN => String::from("nan")
       }
   }
+}
+
+impl StatementVisitor<String> for PrinterVisitor {
+    fn visit_expr_stmt(&mut self, stmt: &ExpressionStatement) -> String {
+        self.indent_level += 1;
+        let expression = stmt.expression.accept(self);
+        self.indent_level -= 1;
+
+        format!(
+            "(Expression Statement):\n{}{}",
+            self.indent(),
+            expression
+        )
+    }
+
+    fn visit_puts_stmt(&mut self, stmt: &PutsStatement) -> String {
+        self.indent_level += 1;
+        let expression = stmt.expression.accept(self);
+        self.indent_level -= 1;
+
+        format!(
+            "(Puts Statement):\n{}{}",
+            self.indent(),
+            expression
+        )
+    }
 }

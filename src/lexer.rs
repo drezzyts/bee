@@ -126,7 +126,7 @@ mod tests {
 
     #[test]
     fn lex_keywords() {
-        let source = r#" and class else false fun for if nil or puts return super this true let while"#;
+        let source = r#" and class else false fun for if nil or puts return super this true mut while"#;
         let mut lexer = Lexer::new(&source.to_string());
         lexer.read_tokens().unwrap();
 
@@ -145,7 +145,7 @@ mod tests {
         assert_eq!(lexer.tokens[11].kind, TokenKind::Super);
         assert_eq!(lexer.tokens[12].kind, TokenKind::This);
         assert_eq!(lexer.tokens[13].kind, TokenKind::True);
-        assert_eq!(lexer.tokens[14].kind, TokenKind::Let);
+        assert_eq!(lexer.tokens[14].kind, TokenKind::Mut);
         assert_eq!(lexer.tokens[15].kind, TokenKind::While);
         assert_eq!(lexer.tokens[16].kind, TokenKind::Eof);
     }

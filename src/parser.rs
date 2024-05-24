@@ -2,9 +2,7 @@ use crate::{
     expressions::{
         BinaryExpression, Expression, GroupExpression, LiteralExpression, LiteralValue,
         UnaryExpression,
-    },
-    program::Program,
-    token::{Token, TokenKind},
+    }, program::Program, statements::{ExpressionStatement, PutsStatement, Statement}, token::{Token, TokenKind}
 };
 
 pub struct Parser {
@@ -17,8 +15,37 @@ impl Parser {
         Self { tokens, current: 0 }
     }
 
-    pub fn parse(&mut self) -> Result<Expression, String> {
-        self.expression()
+    pub fn parse(&mut self) -> Result<Vec<Statement>, String> {
+        let mut statements: Vec<Statement> = vec![];
+
+        while !self.is_eof() {
+            statements.push(self.statement()?);
+        }
+
+        Ok(statements)
+    }
+
+    fn statement(&mut self) -> Result<Statement, String> {
+        if self.is_curr(TokenKind::Puts) {
+            self.puts_stmt()
+        } else {
+            self.expression_stmt()
+        }
+    }
+
+    fn puts_stmt(&mut self) -> Result<Statement, String> {
+        self.next();
+        let expression = self.expression()?;
+        self.eat(TokenKind::SemiColon)?;
+        let statement = PutsStatement::new(Box::new(expression));
+        Ok(Statement::Puts(statement))
+    }
+
+    fn expression_stmt(&mut self) -> Result<Statement, String> {
+        let expression = self.expression()?;
+        self.eat(TokenKind::SemiColon)?;
+        let statement = ExpressionStatement::new(Box::new(expression));
+        Ok(Statement::Expression(statement))
     }
 
     fn expression(&mut self) -> Result<Expression, String> {
@@ -118,6 +145,9 @@ impl Parser {
                 let right: Token = self.eat(TokenKind::RightParen)?;
                 let expression = GroupExpression::new(left, Box::new(expr), right);
                 Ok(Expression::Group(expression))
+            },
+            TokenKind::Eof => {
+                Err(Program::report(self.peek().position, "parser", "unexpected end of input."))
             }
             _ => Err(Program::report(
                 self.peek().position,
@@ -193,6 +223,6 @@ impl Parser {
     }
 
     fn is_eof(&self) -> bool {
-        self.current >= self.tokens.len()
+        self.peek().kind == TokenKind::Eof
     }
 }

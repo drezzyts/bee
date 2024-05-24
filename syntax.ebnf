@@ -1,7 +1,11 @@
-expression => equality ;
-equality => comparison ( ( "!=" | "==") comparison ) *;
-comparsion => term ( (">" | ">=" | "<" | "<=") term) *;
-term => factor ( ("-" | "+") factor ) *;
-factor => unary ( ("/" | "*") unary ) *;
-unary => ( "-" | "!" ) unary | primary;
-primary => NUMBER | STRING | "true" | "false" | "nil" | group;
+program = statement* EOF ;
+statement = expression_statement | puts_statement ;
+puts_statement = "puts" expression ";" ;
+expression_statement = expression ";" ;
+expression = equality;
+equality = comparison ( ( "!=" | "==") comparison )* ;
+comparsion = term ( (">" | ">=" | "<" | "<=") term)* ;
+term = factor ( ("-" | "+") factor )* ;
+factor = unary ( ("/" | "*") unary )* ;
+unary = ( "-" | "!" ) unary | primary ;
+primary = NUMBER | STRING | "true" | "false" | "nil" | group ;

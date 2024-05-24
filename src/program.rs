@@ -35,12 +35,13 @@ impl Program {
                 
                 let mut printer = PrinterVisitor::new();
                 if self.print_ast {
-                    println!("{}", printer.print(&program));
+                    for stmt in program.clone() {
+                        println!("{}", printer.print(&stmt));
+                    }
                 }
 
                 let mut interpreter = Interpreter;
-                let result = interpreter.evaluate(program);
-                println!("{:?}", result);
+                let result = interpreter.interpret(program);
 
                 Ok(())
             },

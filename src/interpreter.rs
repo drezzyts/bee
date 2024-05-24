@@ -1,13 +1,23 @@
-use crate::{expressions::{Expression, LiteralValue}, token::{Token, TokenKind}, visitors::{ExpressionVisitable, ExpressionVisitor}};
+use crate::{expressions::{Expression, LiteralValue}, statements::{ExpressionStatement, PutsStatement, Statement}, token::TokenKind, visitors::{ExpressionVisitable, ExpressionVisitor, StatementVisitable, StatementVisitor}};
 
 pub struct Interpreter;
 
 impl Interpreter {
-  pub fn evaluate(&mut self, expression: Expression) -> LiteralValue {
+  pub fn interpret(&mut self, program: Vec<Statement>) -> () {
+    for stmt in program {
+      self.execute(stmt);
+    }
+  }
+
+  fn evaluate(&mut self, expression: Expression) -> LiteralValue {
     expression.accept(self as &mut dyn ExpressionVisitor<LiteralValue>)
   }
 
-  pub fn is_truthy(&self, lit: LiteralValue) -> bool {
+  fn execute(&mut self, statement: Statement) -> () {
+    statement.accept(self as &mut dyn StatementVisitor<()>)
+  }
+
+  fn is_truthy(&self, lit: LiteralValue) -> bool {
     match lit {
       LiteralValue::Nil => false,
       LiteralValue::True => true,
@@ -67,3 +77,14 @@ impl ExpressionVisitor<LiteralValue> for Interpreter {
     }
   }
 }
+
+impl StatementVisitor<()> for Interpreter {
+  fn visit_expr_stmt(&mut self, stmt: &ExpressionStatement) -> () {
+      self.evaluate(*stmt.expression.clone());
+  }
+
+  fn visit_puts_stmt(&mut self, stmt: &PutsStatement) -> () {
+      let value = self.evaluate(*stmt.expression.clone());
+      println!("{:?}", value);
+  }
+} 
