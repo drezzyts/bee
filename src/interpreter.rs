@@ -92,8 +92,8 @@ impl StatementVisitor<()> for Interpreter {
       let response = match &value {
         LiteralValue::Float(value) => format!("{:?}", value),
         LiteralValue::Integer(value) => format!("{}", value),
-        LiteralValue::String(value) => format!("\"{}\"", value),
-        LiteralValue::Char(value) => format!("'{}'", value),
+        LiteralValue::String(value) => format!("{}", value),
+        LiteralValue::Char(value) => format!("{}", value),
         LiteralValue::Nil => String::from("nil"),
         LiteralValue::True => String::from("true"),
         LiteralValue::False => String::from("false"),
