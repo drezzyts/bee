@@ -119,7 +119,15 @@ impl Parser {
                 let expression = GroupExpression::new(left, Box::new(expr), right);
                 Ok(Expression::Group(expression))
             }
-            _ => unimplemented!(),
+            _ => Err(Program::report(
+                self.peek().position,
+                "parser",
+                format!(
+                    "invalid token has founded while parsing: {:?}",
+                    self.peek().kind
+                )
+                .as_str(),
+            )),
         }
     }
 
@@ -154,6 +162,16 @@ impl Parser {
     fn eat(&mut self, kind: TokenKind) -> Result<Token, String> {
         if self.is_curr(kind.clone()) {
             Ok(self.next())
+        } else if self.peek().kind == TokenKind::Eof {
+            Err(Program::report(
+                self.peek().position,
+                "parser",
+                format!(
+                    "unexpected end of input founded while parsing - expected {:?}",
+                    kind
+                )
+                .as_str(),
+            ))
         } else {
             Err(Program::report(
                 self.peek().position,

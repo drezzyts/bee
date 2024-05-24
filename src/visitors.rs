@@ -80,13 +80,14 @@ impl ExpressionVisitor<String> for PrinterVisitor {
 
   fn visit_literal_expr(&mut self, expr: &LiteralExpression) -> String {
       match &expr.value {
-          LiteralValue::Float(value) => format!("{}", value),
+          LiteralValue::Float(value) => format!("{:?}", value),
           LiteralValue::Integer(value) => format!("{}", value),
           LiteralValue::String(value) => format!("\"{}\"", value),
           LiteralValue::Char(value) => format!("'{}'", value),
           LiteralValue::Nil => String::from("nil"),
           LiteralValue::True => String::from("true"),
           LiteralValue::False => String::from("false"),
+          LiteralValue::NaN => String::from("nan")
       }
   }
 }

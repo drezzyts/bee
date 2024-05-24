@@ -8,11 +8,12 @@ mod token;
 mod expressions;
 mod visitors;
 mod parser;
+mod interpreter;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
     let argc: i32 = args.len().try_into().unwrap();
-    let program = Program::new();
+    let mut program = Program::new();
     let mut result: Result<(), String> = Ok(());
 
     match argc {

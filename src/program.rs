@@ -3,16 +3,20 @@
 use std::io::{self, Read, Write};
 use std::fs::File;
 
+use crate::interpreter::Interpreter;
 use crate::lexer::Lexer;
 use crate::parser::Parser;
 use crate::position::Position;
 use crate::visitors::PrinterVisitor;
 
-pub struct Program;
+pub struct Program {
+    pub print_tokens: bool,
+    pub print_ast: bool
+}
 
 impl Program {
     pub fn new() -> Self {
-        Self
+        Self { print_ast: false, print_tokens: false }
     }
 
     fn run(&self, source: &String) -> Result<(), String> {
@@ -20,14 +24,23 @@ impl Program {
         
         match lexer.read_tokens() {
             Ok(tokens) => {
-                let mut parser = Parser::new(tokens.clone());
-                let program = parser.parse()?;
-                let mut printer = PrinterVisitor::new();
-                println!("{}", printer.print(&program));
-                
-                for token in tokens {
-                    println!("{:?}", token);
+                if self.print_tokens {
+                    for token in tokens.clone() {
+                        println!("{:?}", token);
+                    }
                 }
+
+                let mut parser = Parser::new(tokens);
+                let program = parser.parse()?;
+                
+                let mut printer = PrinterVisitor::new();
+                if self.print_ast {
+                    println!("{}", printer.print(&program));
+                }
+
+                let mut interpreter = Interpreter;
+                let result = interpreter.evaluate(program);
+                println!("{:?}", result);
 
                 Ok(())
             },
@@ -43,7 +56,8 @@ impl Program {
         format!("(error) ~{location} {} --> {message}", pos.to_string())
     }
 
-    pub fn run_repl(&self) -> Result<(), String> {
+    pub fn run_repl(&mut self) -> Result<(), String> {
+        println!("bee repl v0.1 - commands:\n\t* quit --> :q\n\t* print tokens --> :tokens\n\t* print ast --> :ast\n");
         let mut input = String::new();
 
         loop {
@@ -52,9 +66,24 @@ impl Program {
             io::stdout().flush().unwrap();
             io::stdin().read_line(&mut input).unwrap();
 
-            if input.trim().eq(":q") {
-                break;
+            match input.trim() {
+                ":q" => break,
+                ":ast" => { 
+                    self.print_ast = !self.print_ast;
+                    println!("(debug) --> print abstract syntax tree: {}", self.print_ast);
+                    input.clear();
+                    continue
+                }
+                ":tokens" => {
+                    self.print_tokens = !self.print_tokens;
+                    println!("(debug) --> print tokens: {}", self.print_tokens);
+                    input.clear();
+                    continue;
+                },
+                _ => ()
             }
+
+
 
             if let Err(error) = self.run(&input) {
                 println!("{error}");

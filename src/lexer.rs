@@ -292,6 +292,14 @@ impl Lexer {
 
         let char = self.next();
 
+        if char == '\'' {
+            return Err(Program::report(
+                self.position(),
+                "lexer",
+                "empty char founded while lexing.",
+            ));
+        }
+
         if self.next() != '\'' {
             return Err(Program::report(
                 self.position(),
