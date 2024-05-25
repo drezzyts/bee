@@ -17,7 +17,7 @@ Bee is a simple programming language I created as a personal learning project. I
 
 * **Punctuators:**
   * `()` Parentheses for function calls and expressions.
-  * `.` Dot for accessing members of objects.
+  * `?` Question for constant variables.
   * `;` Semicolon to terminate statements.
 * **Operators:**
   * `+` Addition
