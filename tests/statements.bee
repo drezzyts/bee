@@ -4,3 +4,8 @@ echo 10 * 5;
 
 // Expression Statement;
 10 * 5;
+
+// Variables;
+mut? name = "drezzy"; // constant
+mut age;
+age = 18;

@@ -120,6 +120,22 @@ impl LiteralValue {
                 LiteralValue::String(format!("{}{}", c1, s1)),
             (LiteralValue::Char(c1), LiteralValue::Char(c2)) =>
                 LiteralValue::String(format!("{}{}", c1, c2)),
+            (LiteralValue::Integer(n1), LiteralValue::String(s1)) => 
+                LiteralValue::String(format!("{}{}", n1, s1)),
+            (LiteralValue::Float(n1), LiteralValue::String(s1)) => 
+                LiteralValue::String(format!("{}{}", n1, s1)),
+            (LiteralValue::String(s1), LiteralValue::Integer(n1)) => 
+                LiteralValue::String(format!("{}{}", s1, n1)),
+            (LiteralValue::String(n1), LiteralValue::Float(s1)) => 
+                LiteralValue::String(format!("{}{}", s1, n1)),
+            (LiteralValue::Integer(n1), LiteralValue::Char(s1)) => 
+                LiteralValue::String(format!("{}{}", n1, s1)),
+            (LiteralValue::Float(n1), LiteralValue::Char(s1)) => 
+                LiteralValue::String(format!("{}{}", n1, s1)),
+            (LiteralValue::Char(s1), LiteralValue::Integer(n1)) => 
+                LiteralValue::String(format!("{}{}", s1, n1)),
+            (LiteralValue::Char(n1), LiteralValue::Float(s1)) => 
+                LiteralValue::String(format!("{}{}", s1, n1)),
             _ => LiteralValue::NaN,
         }
     }
