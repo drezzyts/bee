@@ -1,4 +1,5 @@
 use std::env;
+use error::BeeError;
 use program::Program;
 
 mod program;
@@ -11,12 +12,13 @@ mod parser;
 mod interpreter;
 mod statements;
 mod enviroment;
+mod error;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
     let argc: i32 = args.len().try_into().unwrap();
     let mut program = Program::new();
-    let mut result: Result<(), String> = Ok(());
+    let mut result: Result<(), BeeError> = Ok(());
 
     match argc {
         1 => result = program.run_repl(), 
@@ -35,7 +37,7 @@ fn main() {
     match result {
         Ok(_) => println!("(log) --> exited with success."),
         Err(err) => {
-            println!("{}", err);
+            println!("{}", err.message);
             panic!("(error) --> exited with failed.")
         }
     }

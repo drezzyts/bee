@@ -1,22 +1,47 @@
 use crate::{
-    expressions::{self, AssignmentExpression, Expression, *}, program::Program, statements::{EchoStatement, ExpressionStatement, Statement, VariableStatement}, token::{self, Token, TokenKind}
+    error::BeeError, expressions::*, position, statements::*, token::{Token, TokenKind}
 };
 
 pub struct Parser {
     tokens: Vec<Token>,
     current: usize,
+    source: String,
 }
 
 impl Parser {
-    pub fn new(tokens: Vec<Token>) -> Self {
-        Self { tokens, current: 0 }
+    pub fn new(tokens: Vec<Token>, source: String) -> Self {
+        Self {
+            tokens,
+            current: 0,
+            source,
+        }
     }
 
-    pub fn parse(&mut self) -> Result<Vec<Statement>, String> {
+    pub fn parse(&mut self) -> Result<Vec<Statement>, BeeError> {
         let mut statements: Vec<Statement> = vec![];
 
         while !self.is_eof() {
-            statements.push(self.declaration()?);
+            match self.declaration() {
+                Ok(stmt) => statements.push(stmt),
+                Err(message) => {
+                    let position = if self.peek().kind == TokenKind::Eof {
+                        let mut aux = self.previous().position.clone();
+                        aux.cend += 1;
+                        aux
+                    } else {
+                        self.peek().position.clone()
+                    };
+
+                    let error = BeeError::report(
+                        &position,  
+                        message.as_str(),
+                        "parser",
+                        self.source.clone(),
+                    );
+
+                    return Err(error);
+                }
+            }
         }
 
         Ok(statements)
@@ -35,8 +60,8 @@ impl Parser {
 
         match result {
             Ok(stmt) => Ok(stmt),
-            Err(a) => Err(a), //self.synchronize()
-        }   
+            Err(err) => Err(err), //self.synchronize()
+        }
     }
 
     fn var_declaration(&mut self) -> Result<Statement, String> {
@@ -48,14 +73,14 @@ impl Parser {
         } else {
             false
         };
-        
+
         let name = self.eat(TokenKind::Identifier)?;
         let initializer: Option<Expression> = if self.is_curr(TokenKind::Equal) {
             self.eat(TokenKind::Equal)?;
             Some(self.expression()?)
         } else {
             None
-        }; 
+        };
         self.eat(TokenKind::SemiColon)?;
 
         let stmt = VariableStatement::new(name, initializer, constant);
@@ -92,18 +117,18 @@ impl Parser {
     fn assignment_expr(&mut self) -> Result<Expression, String> {
         let expression = self.equality()?;
 
-        
-
         if self.is_curr(TokenKind::Equal) {
-            let equals = self.next();
+            self.next();
             let value = self.assignment_expr()?;
 
             match expression {
                 Expression::Variable(expr) => {
                     let assignment = AssignmentExpression::new(expr.name.clone(), Box::new(value));
                     return Ok(Expression::Assignment(assignment));
-                },
-                _ => return Err(Program::report(equals.position.clone(), "parser", "invalid assignment target has founded while parsing."))
+                }
+                _ => {
+                    return Err("invalid assignment target has founded while parsing.".to_string());
+                }
             }
         }
 
@@ -203,23 +228,16 @@ impl Parser {
                 let right: Token = self.eat(TokenKind::RightParen)?;
                 let expression = GroupExpression::new(left, Box::new(expr), right);
                 Ok(Expression::Group(expression))
-            },
+            }
             TokenKind::Identifier => {
                 let name: Token = self.eat(TokenKind::Identifier)?;
                 let expression = VariableExpression::new(name);
                 Ok(Expression::Variable(expression))
             }
-            TokenKind::Eof => {
-                Err(Program::report(self.peek().position, "parser", "unexpected end of input."))
-            }
-            _ => Err(Program::report(
-                self.peek().position,
-                "parser",
-                format!(
-                    "invalid token has founded while parsing: {:?}",
-                    self.peek().kind
-                )
-                .as_str(),
+            TokenKind::Eof => Err("unexpected end of input.".to_string()),
+            _ => Err(format!(
+                "invalid token has founded while parsing: {:?}",
+                self.peek().kind
             )),
         }
     }
@@ -256,25 +274,15 @@ impl Parser {
         if self.is_curr(kind.clone()) {
             Ok(self.next())
         } else if self.peek().kind == TokenKind::Eof {
-            Err(Program::report(
-                self.peek().position,
-                "parser",
-                format!(
-                    "unexpected end of input founded while parsing - expected {:?}",
-                    kind
-                )
-                .as_str(),
+            Err(format!(
+                "unexpected end of input founded while parsing\n ~ expected {:?}",
+                kind
             ))
         } else {
-            Err(Program::report(
-                self.peek().position,
-                "parser",
-                format!(
-                    "unexpected token founded while parsing - expected {:?}, founded {:?}",
-                    kind,
-                    self.peek().kind
-                )
-                .as_str(),
+            Err(format!(
+                "unexpected token founded while parsing\n ~ expected {:?}, founded {:?}",
+                kind,
+                self.peek().kind
             ))
         }
     }

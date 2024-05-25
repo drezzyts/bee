@@ -1,6 +1,5 @@
 use crate::{
-    token::{Token, TokenKind},
-    visitors::{ExpressionVisitable, ExpressionVisitor},
+    position::{self, Position}, token::{Token, TokenKind}, visitors::{ExpressionVisitable, ExpressionVisitor}
 };
 
 #[derive(Debug, Clone)]
@@ -14,6 +13,30 @@ pub enum Expression {
 }
 
 impl Expression {
+    pub fn position(expr: Expression) -> Position {
+        match expr {
+            Expression::Binary(expr) => {
+                Position { line: Expression::position(*expr.left.clone()).line, cstart: Expression::position(*expr.left).cstart, cend: Expression::position(*expr.right).cend }
+            }
+            Expression::Group(expr) => {
+                Position { line: expr.left.position.line, cstart: expr.left.position.cstart, cend: expr.right.position.cend }
+            }
+            Expression::Literal(expr) => {
+                expr.token.position.clone()
+            }
+            Expression::Unary(expr) => {
+                Position { line: expr.operator.position.line, cstart: expr.operator.position.cstart, cend: Expression::position(*expr.right).cend }
+            }
+            Expression::Variable(expr) => {
+                expr.name.position.clone()
+            }
+            Expression::Assignment(expr) => {
+                Position { line: expr.name.position.line, cstart: expr.name.position.cstart, cend: Expression::position(*expr.value).cend }
+            }
+        }
+    }
+
+
     pub fn eq_kind(&self, expr: Expression) -> bool {
         match (self, expr) {
             (Expression::Binary(_), Expression::Binary(_)) => true,

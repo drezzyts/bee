@@ -1,8 +1,4 @@
-use crate::{
-    enviroment::Enviroment, expressions::{
-        AssignmentExpression, BinaryExpression, GroupExpression, LiteralExpression, LiteralValue, UnaryExpression, VariableExpression
-    }, statements::{EchoStatement, ExpressionStatement, Statement, VariableStatement}
-};
+use crate::{enviroment::Enviroment, expressions::*, statements::*};
 
 pub trait ExpressionVisitor<T> {
     fn visit_binary_expr(&mut self, expr: &BinaryExpression) -> T;
@@ -29,12 +25,15 @@ pub trait StatementVisitable<T> {
 
 pub struct PrinterVisitor {
     indent_level: usize,
-    enviroment: *mut Enviroment
+    enviroment: *mut Enviroment,
 }
 
 impl PrinterVisitor {
     pub fn new(enviroment: &mut Enviroment) -> Self {
-        Self { indent_level: 1, enviroment: enviroment }
+        Self {
+            indent_level: 1,
+            enviroment: enviroment,
+        }
     }
 
     fn indent(&self) -> String {
@@ -108,8 +107,12 @@ impl ExpressionVisitor<String> for PrinterVisitor {
     }
 
     fn visit_var_expr(&mut self, expr: &VariableExpression) -> String {
-        unsafe { 
-            let value = self.enviroment.as_ref().unwrap().get(expr.name.lexeme.clone());
+        unsafe {
+            let value = self
+                .enviroment
+                .as_ref()
+                .unwrap()
+                .get(expr.name.lexeme.clone());
             match &value {
                 LiteralValue::Float(value) => format!("{:?}", value),
                 LiteralValue::Integer(value) => format!("{}", value),
@@ -122,11 +125,15 @@ impl ExpressionVisitor<String> for PrinterVisitor {
             }
         }
     }
-    
+
     fn visit_assignment_expr(&mut self, expr: &AssignmentExpression) -> String {
         let value = expr.value.accept(self);
 
-        format!("(Assignment Expression) --> {} = {}", expr.name.lexeme.clone(), value)
+        format!(
+            "(Assignment Expression) --> {} = {}",
+            expr.name.lexeme.clone(),
+            value
+        )
     }
 }
 
@@ -149,7 +156,7 @@ impl StatementVisitor<String> for PrinterVisitor {
 
     fn visit_var_stmt(&mut self, stmt: &VariableStatement) -> String {
         self.indent_level += 1;
-        
+
         let expression = if let Some(initializer) = stmt.initializer.clone() {
             initializer.accept(self)
         } else {

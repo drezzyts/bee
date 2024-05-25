@@ -1,4 +1,5 @@
 use crate::{
+    error::BeeError,
     position::Position,
     program::Program,
     token::{Token, TokenKind, TokenLiteralValue},
@@ -10,18 +11,20 @@ pub struct Lexer {
     start: usize,
     current: usize,
     line: usize,
+    cstart: usize,
+    cend: usize,
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::token::TokenKind;
     use super::Lexer;
+    use crate::token::TokenKind;
 
     #[test]
     fn lex_punctuators() {
         let source = "{ } ( ) . , ;";
         let mut lexer = Lexer::new(&source.to_string());
-        lexer.read_tokens().unwrap();
+        lexer.read_tokens();
 
         assert_eq!(lexer.tokens.len(), 8);
         assert_eq!(lexer.tokens[0].kind, TokenKind::LeftBrace);
@@ -38,7 +41,7 @@ mod tests {
     fn lex_math_operators() {
         let source = "+ - / *";
         let mut lexer = Lexer::new(&source.to_string());
-        lexer.read_tokens().unwrap();
+        lexer.read_tokens();
 
         assert_eq!(lexer.tokens.len(), 5);
         assert_eq!(lexer.tokens[0].kind, TokenKind::Plus);
@@ -52,7 +55,7 @@ mod tests {
     fn lex_bool_operators() {
         let source = "> < >= <= != == = !";
         let mut lexer = Lexer::new(&source.to_string());
-        lexer.read_tokens().unwrap();
+        lexer.read_tokens();
 
         assert_eq!(lexer.tokens.len(), 9);
         assert_eq!(lexer.tokens[0].kind, TokenKind::Greater);
@@ -72,7 +75,7 @@ mod tests {
         "Hello,
               World!""#;
         let mut lexer = Lexer::new(&source.to_string());
-        lexer.read_tokens().unwrap();
+        lexer.read_tokens();
 
         assert_eq!(lexer.tokens.len(), 3);
         assert_eq!(lexer.tokens[0].kind, TokenKind::String);
@@ -85,7 +88,7 @@ mod tests {
         let source = r#"'a'
         '1'"#;
         let mut lexer = Lexer::new(&source.to_string());
-        lexer.read_tokens().unwrap();
+        lexer.read_tokens();
 
         assert_eq!(lexer.tokens.len(), 3);
         assert_eq!(lexer.tokens[0].kind, TokenKind::Char);
@@ -100,7 +103,7 @@ mod tests {
         num1
         "#;
         let mut lexer = Lexer::new(&source.to_string());
-        lexer.read_tokens().unwrap();
+        lexer.read_tokens();
 
         assert_eq!(lexer.tokens.len(), 4);
         assert_eq!(lexer.tokens[0].kind, TokenKind::Identifier);
@@ -109,14 +112,13 @@ mod tests {
         assert_eq!(lexer.tokens[3].kind, TokenKind::Eof);
     }
 
-    
     #[test]
     fn lex_numbers() {
         let source = r#"11
         5.5
         "#;
         let mut lexer = Lexer::new(&source.to_string());
-        lexer.read_tokens().unwrap();
+        lexer.read_tokens();
 
         assert_eq!(lexer.tokens.len(), 3);
         assert_eq!(lexer.tokens[0].kind, TokenKind::Integer);
@@ -126,9 +128,10 @@ mod tests {
 
     #[test]
     fn lex_keywords() {
-        let source = r#" and class else false fun for if nil or echo return super this true mut while"#;
+        let source =
+            r#" and class else false fun for if nil or echo return super this true mut while"#;
         let mut lexer = Lexer::new(&source.to_string());
-        lexer.read_tokens().unwrap();
+        lexer.read_tokens();
 
         assert_eq!(lexer.tokens.len(), 17);
         assert_eq!(lexer.tokens[0].kind, TokenKind::And);
@@ -159,19 +162,31 @@ impl Lexer {
             start: 0,
             current: 0,
             line: 1,
+            cstart: 1,
+            cend: 1,
         }
     }
 
-    pub fn read_tokens(&mut self) -> Result<Vec<Token>, String> {
+    pub fn read_tokens(&mut self) -> Result<Vec<Token>, BeeError> {
         while !self.is_eof() {
             self.start = self.current;
 
-            if let Err(error) = self.read_token() {
+            if let Err(message) = self.read_token() {
+                let error = BeeError::report(
+                    &self.position(),
+                    message.as_str(),
+                    "lexer",
+                    self.source.clone(),
+                );
+
                 return Err(error);
             };
+
+            self.cstart = self.cend;
         }
 
-        self.push_token(TokenKind::Eof, None);
+        let eof = Token::new(TokenKind::Eof, "\0".to_string(), None, self.position());
+        self.tokens.push(eof);
         Ok(self.tokens.clone())
     }
 
@@ -238,21 +253,14 @@ impl Lexer {
             '\r' | '\t' | ' ' => return Ok(()),
             '\n' => {
                 self.line += 1;
+                self.cend = 1;
+                self.cstart = 1;
                 return Ok(());
             }
             _ => {
-                let position = Position {
-                    line: self.line,
-                    cstart: self.start,
-                    cend: self.current,
-                };
                 let invalid_token = self.source[self.start..self.current].to_string().clone();
 
-                return Err(Program::report(
-                    position,
-                    "lexer",
-                    format!("unexpected token found while lexing: {:?}", invalid_token).as_str(),
-                ));
+                return Err(format!("unexpected token found while lexing: {:?}", invalid_token));
             }
         }
         Ok(())
@@ -262,21 +270,19 @@ impl Lexer {
         while self.peek() != '"' && !self.is_eof() {
             if self.peek() == '\n' {
                 self.line += 1;
+                self.cstart = 0;
+                self.cend = 0;
             }
             self.next();
         }
 
         if self.is_eof() {
-            return Err(Program::report(
-                self.position(),
-                "lexer",
-                "unterminated string founded while lexing",
-            ));
+            return Err("unterminated string founded while lexing".to_string());
         }
 
         self.next();
 
-        let string = &self.source[self.start + 1..self.current-1];
+        let string = &self.source[self.start + 1..self.current - 1];
         let value = TokenLiteralValue::String(string.to_string());
         self.push_token(TokenKind::String, Some(value));
         Ok(())
@@ -284,29 +290,17 @@ impl Lexer {
 
     fn read_char(&mut self) -> Result<(), String> {
         if self.is_eof() {
-            return Err(Program::report(
-                self.position(),
-                "lexer",
-                "unterminated char founded while lexing.",
-            ));
+            return Err("unterminated char founded while lexing.".to_string());
         }
 
         let char = self.next();
 
         if char == '\'' {
-            return Err(Program::report(
-                self.position(),
-                "lexer",
-                "empty char founded while lexing.",
-            ));
+            return Err("empty char founded while lexing.".to_string());
         }
 
         if self.next() != '\'' {
-            return Err(Program::report(
-                self.position(),
-                "lexer",
-                "unterminated char founded while lexing.",
-            ));
+            return Err("unterminated char founded while lexing.".to_string());
         };
 
         let value = TokenLiteralValue::Char(char);
@@ -333,11 +327,7 @@ impl Lexer {
                 kind = TokenKind::Float;
                 value = TokenLiteralValue::Float(float);
             } else {
-                return Err(Program::report(
-                    self.position(),
-                    "lexer",
-                    "unexpected internal error ocurred while parsing float.",
-                ));
+                return Err("unexpected internal error ocurred while parsing float.".to_string());
             }
         } else {
             let lexeme = &self.source[self.start..self.current];
@@ -345,11 +335,7 @@ impl Lexer {
                 kind = TokenKind::Integer;
                 value = TokenLiteralValue::Integer(integer);
             } else {
-                return Err(Program::report(
-                    self.position(),
-                    "lexer",
-                    "unexpected internal error ocurred while parsing integer.",
-                ));
+                return Err("unexpected internal error ocurred while parsing integer.".to_string());
             }
         }
 
@@ -395,6 +381,7 @@ impl Lexer {
     fn next(&mut self) -> char {
         if let Some(next_char) = self.source.chars().nth(self.current) {
             self.current += 1;
+            self.cend += 1;
             return next_char;
         } else {
             return '\0';
@@ -416,8 +403,8 @@ impl Lexer {
     fn position(&self) -> Position {
         Position {
             line: self.line,
-            cstart: self.start,
-            cend: self.current,
+            cstart: self.cstart,
+            cend: self.cend,
         }
     }
     fn is_eof(&self) -> bool {

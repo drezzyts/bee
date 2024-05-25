@@ -1,5 +1,5 @@
 use crate::{
-    expressions::Expression, token::Token, visitors::{StatementVisitable, StatementVisitor}
+    expressions::{self, Expression}, position::Position, token::Token, visitors::{StatementVisitable, StatementVisitor}
 };
 
 #[derive(Debug, Clone)]
@@ -7,6 +7,22 @@ pub enum Statement {
     Expression(ExpressionStatement),
     Echo(EchoStatement),
     Variable(VariableStatement)
+}
+
+impl Statement {
+    pub fn position(&self) -> Position {
+        match self {
+            Statement::Expression(stmt) => {
+                Expression::position(*stmt.expression.clone()).clone()
+            }
+            Statement::Echo(stmt) => {
+                Expression::position(*stmt.expression.clone()).clone()
+            }
+            Statement::Variable(stmt) => {
+                stmt.name.position.clone()
+            }
+        }
+    }
 }
 
 #[allow(unreachable_patterns)]

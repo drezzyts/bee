@@ -4,6 +4,7 @@ use std::io::{self, Read, Write};
 use std::fs::File;
 
 use crate::enviroment::{self, Enviroment};
+use crate::error::BeeError;
 use crate::interpreter::{self, Interpreter};
 use crate::lexer::Lexer;
 use crate::parser::Parser;
@@ -21,12 +22,12 @@ impl Program {
         Self { print_ast: false, print_tokens: false, interpreter: Interpreter::new() }
     }
 
-    fn run(&mut self, source: &String) -> Result<(), String> {
+    fn run(&mut self, source: &String) -> Result<(), BeeError> {
         let mut lexer = Lexer::new(source);
         
         match lexer.read_tokens() {
             Ok(tokens) => {
-                let mut parser = Parser::new(tokens.clone());
+                let mut parser = Parser::new(tokens.clone(), source.clone());
                 let mut printer = PrinterVisitor::new(&mut self.interpreter.enviroment);
 
                 if self.print_tokens {
@@ -44,7 +45,7 @@ impl Program {
                 }
 
                 
-                let result = self.interpreter.interpret(program);
+                let result = self.interpreter.interpret(program, source.clone())?;
 
                 Ok(())
             },
@@ -52,15 +53,7 @@ impl Program {
         }
     }
 
-    pub fn error(pos: Position, message: &str) -> String {
-        Program::report(pos, "", message)
-    }
-
-    pub fn report(pos: Position, location: &str, message: &str) -> String {
-        format!("(error) ~{location} {} --> {message}", pos.to_string())
-    }
-
-    pub fn run_repl(&mut self) -> Result<(), String> {
+    pub fn run_repl(&mut self) -> Result<(), BeeError> {
         println!("bee repl v0.1 - commands:\n\t* quit --> :q\n\t* print tokens --> :tokens\n\t* print ast --> :ast\n");
         let mut input = String::new();
 
@@ -90,7 +83,7 @@ impl Program {
 
 
             if let Err(error) = self.run(&input) {
-                println!("{error}");
+                println!("{}", error.message);
             }
 
             input.clear();
@@ -99,7 +92,7 @@ impl Program {
         Ok(())
     }
 
-    pub fn run_file(&mut self, filename: &String) -> Result<(), String> {
+    pub fn run_file(&mut self, filename: &String) -> Result<(), BeeError> {
         match File::open(filename) {
             Ok(mut file) => {
                 let mut buf = String::new();
@@ -108,7 +101,7 @@ impl Program {
             }
             Err(_) => {
                 let pos = Position { line: 0, cstart: 0, cend: 0 };
-                let err = Program::error(pos, "unexpected error ocurred while reading this file");
+                let err = BeeError::error(&pos, "unexpected error ocurred while reading this file", "".to_string());
                 return Err(err);
             }
         };
