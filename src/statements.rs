@@ -9,7 +9,7 @@ pub enum Statement {
     Variable(VariableStatement),
     Block(BlockStatement),
     If(IfStatement),
-    While(WhileStatement)
+    While(WhileStatement),
 }
 
 impl Statement {
@@ -26,7 +26,7 @@ impl Statement {
             }
             Statement::Block(_) => unreachable!(),
             Statement::If(_) => unreachable!(),
-            Statement::While(_) => unreachable!()
+            Statement::While(_) => unreachable!(),
         }
     }
 }

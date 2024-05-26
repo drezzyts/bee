@@ -39,3 +39,18 @@ else if (age >= 16)
   echo ">= 16";
 else 
   echo "< 16";
+
+// While Statement
+
+mut i = 0;
+
+while (i < 5) {
+  echo i;
+  i = i + 1;
+}
+
+// For Statement
+
+for (mut i = 0; i < 5; i = i + 1) {
+  echo i;
+}

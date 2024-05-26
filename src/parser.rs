@@ -60,7 +60,7 @@ impl Parser {
 
         match result {
             Ok(stmt) => Ok(stmt),
-            Err(err) => Err(err), //self.synchronize()
+            Err(err) => Err(err),
         }
     }
 
@@ -93,8 +93,50 @@ impl Parser {
             TokenKind::Echo => Ok(self.echo_stmt()?),
             TokenKind::If => Ok(self.if_stmt()?),
             TokenKind::While => Ok(self.while_stmt()?),
+            TokenKind::For => Ok(self.for_stmt()?),
             _ => self.expression_stmt()
         }
+    }
+
+    fn for_stmt(&mut self) -> Result<Statement, String> {
+        self.eat(TokenKind::For)?;
+        
+        let left = self.eat(TokenKind::LeftParen)?;
+        let initializer: Option<Statement> = match self.peek().kind {
+            TokenKind::SemiColon => { self.eat(TokenKind::SemiColon)?; None },
+            TokenKind::Mut => Some(self.var_declaration()?),
+            _ => Some(self.expression_stmt()?),
+        };
+
+        let condition = self.expression()?;
+        self.eat(TokenKind::SemiColon)?;
+
+        let increment = self.expression()?;
+
+        let expression = ExpressionStatement::new(
+            Box::new(increment),
+        );
+
+        let right = self.eat(TokenKind::RightParen)?;
+
+        let stmt = self.statement()?;
+        let mut stmts: Vec<Box<Statement>> = vec![
+            Box::new(stmt),
+            Box::new(Statement::Expression(expression))
+        ];
+
+        let mut body = Statement::Block(BlockStatement::new(left.clone(), stmts, right.clone()));
+        body = Statement::While(WhileStatement::new(Box::new(condition), Box::new(body)));
+
+        if let Some(init) = initializer {
+            stmts = vec![
+                Box::new(init),
+                Box::new(body)
+            ];
+            body = Statement::Block(BlockStatement::new(left, stmts, right));
+        }
+
+        Ok(body)
     }
 
     fn while_stmt(&mut self) -> Result<Statement, String> {
