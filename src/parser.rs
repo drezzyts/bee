@@ -92,8 +92,25 @@ impl Parser {
             TokenKind::LeftBrace => Ok(self.block_stmt()?),
             TokenKind::Echo => Ok(self.echo_stmt()?),
             TokenKind::If => Ok(self.if_stmt()?),
+            TokenKind::While => Ok(self.while_stmt()?),
             _ => self.expression_stmt()
         }
+    }
+
+    fn while_stmt(&mut self) -> Result<Statement, String> {
+        self.eat(TokenKind::While)?;
+
+        self.eat(TokenKind::LeftParen)?;
+        let condition = self.expression()?;
+        self.eat(TokenKind::RightParen)?;
+
+        let body = self.statement()?;
+        let statement = WhileStatement::new(
+            Box::new(condition),
+            Box::new(body)
+        );
+
+        Ok(Statement::While(statement))
     }
 
     fn if_stmt(&mut self) -> Result<Statement, String> {

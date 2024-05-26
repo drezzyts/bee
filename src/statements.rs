@@ -8,7 +8,8 @@ pub enum Statement {
     Echo(EchoStatement),
     Variable(VariableStatement),
     Block(BlockStatement),
-    If(IfStatement)
+    If(IfStatement),
+    While(WhileStatement)
 }
 
 impl Statement {
@@ -25,6 +26,7 @@ impl Statement {
             }
             Statement::Block(_) => unreachable!(),
             Statement::If(_) => unreachable!(),
+            Statement::While(_) => unreachable!()
         }
     }
 }
@@ -38,6 +40,7 @@ impl<T> StatementVisitable<T> for Statement {
             Statement::Variable(stmt) => visitor.visit_var_stmt(stmt),
             Statement::Block(stmt) => visitor.visit_block_stmt(stmt),
             Statement::If(stmt) => visitor.visit_if_stmt(stmt),
+            Statement::While(stmt) => visitor.visit_while_stmt(stmt),
             _ => unimplemented!(),
         }
     }
@@ -104,5 +107,21 @@ impl IfStatement {
         alternate: Option<Box<Statement>>
     ) -> Self {
         Self { condition, consequent, alternate }
+    }
+}
+
+
+#[derive(Debug, Clone)]
+pub struct WhileStatement {
+    pub condition: Box<Expression>,
+    pub body: Box<Statement>
+}
+
+impl WhileStatement {
+    pub fn new(
+        condition: Box<Expression>,
+        body: Box<Statement>
+    ) -> Self {
+        Self { condition, body }
     }
 }

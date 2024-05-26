@@ -222,4 +222,18 @@ impl StatementVisitor<Result<(), BeeError>> for Interpreter {
 
         Ok(())
     }
+    
+    fn visit_while_stmt(&mut self, stmt: &WhileStatement) -> Result<(), BeeError> {
+        loop {
+            let condition = self.evaluate(*stmt.condition.clone())?;
+
+            if self.is_truthy(condition) {
+                self.execute(*stmt.body.clone())?;
+            } else {
+                break;
+            }
+        }
+
+        Ok(())
+    }
 }

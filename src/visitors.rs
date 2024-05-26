@@ -20,6 +20,7 @@ pub trait StatementVisitor<T> {
     fn visit_var_stmt(&mut self, stmt: &VariableStatement) -> T;
     fn visit_block_stmt(&mut self, stmt: &BlockStatement) -> T;
     fn visit_if_stmt(&mut self, stmt: &IfStatement) -> T;
+    fn visit_while_stmt(&mut self, stmt: &WhileStatement) -> T;
 }
 
 pub trait StatementVisitable<T> {
