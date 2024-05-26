@@ -7,7 +7,8 @@ pub enum Statement {
     Expression(ExpressionStatement),
     Echo(EchoStatement),
     Variable(VariableStatement),
-    Block(BlockStatement)
+    Block(BlockStatement),
+    If(IfStatement)
 }
 
 impl Statement {
@@ -22,7 +23,8 @@ impl Statement {
             Statement::Variable(stmt) => {
                 stmt.name.position.clone()
             }
-            Statement::Block(_) => unreachable!()
+            Statement::Block(_) => unreachable!(),
+            Statement::If(_) => unreachable!(),
         }
     }
 }
@@ -35,6 +37,7 @@ impl<T> StatementVisitable<T> for Statement {
             Statement::Echo(stmt) => visitor.visit_echo_stmt(stmt),
             Statement::Variable(stmt) => visitor.visit_var_stmt(stmt),
             Statement::Block(stmt) => visitor.visit_block_stmt(stmt),
+            Statement::If(stmt) => visitor.visit_if_stmt(stmt),
             _ => unimplemented!(),
         }
     }
@@ -84,5 +87,22 @@ pub struct BlockStatement {
 impl BlockStatement {
     pub fn new(left: Token, statements: Vec<Box<Statement>>, right: Token) -> Self {
         Self { left, statements, right }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct IfStatement {
+    pub condition: Box<Expression>,
+    pub consequent: Box<Statement>,
+    pub alternate: Option<Box<Statement>>
+}
+
+impl IfStatement {
+    pub fn new(
+        condition: Box<Expression>,
+        consequent: Box<Statement>,
+        alternate: Option<Box<Statement>>
+    ) -> Self {
+        Self { condition, consequent, alternate }
     }
 }

@@ -53,11 +53,11 @@ mod tests {
 
     #[test]
     fn lex_bool_operators() {
-        let source = "> < >= <= != == = !";
+        let source = "> < >= <= != == = ! && ||";
         let mut lexer = Lexer::new(&source.to_string());
         lexer.read_tokens();
 
-        assert_eq!(lexer.tokens.len(), 9);
+        assert_eq!(lexer.tokens.len(), 11);
         assert_eq!(lexer.tokens[0].kind, TokenKind::Greater);
         assert_eq!(lexer.tokens[1].kind, TokenKind::Less);
         assert_eq!(lexer.tokens[2].kind, TokenKind::GreaterEqual);
@@ -66,7 +66,9 @@ mod tests {
         assert_eq!(lexer.tokens[5].kind, TokenKind::EqualEqual);
         assert_eq!(lexer.tokens[6].kind, TokenKind::Equal);
         assert_eq!(lexer.tokens[7].kind, TokenKind::Bang);
-        assert_eq!(lexer.tokens[8].kind, TokenKind::Eof);
+        assert_eq!(lexer.tokens[8].kind, TokenKind::And);
+        assert_eq!(lexer.tokens[9].kind, TokenKind::Or);
+        assert_eq!(lexer.tokens[10].kind, TokenKind::Eof);
     }
 
     #[test]
@@ -129,28 +131,26 @@ mod tests {
     #[test]
     fn lex_keywords() {
         let source =
-            r#" and class else false fun for if nil or echo return super this true mut while"#;
+            r#"class else false fun for if nil echo return super this true mut while"#;
         let mut lexer = Lexer::new(&source.to_string());
         lexer.read_tokens();
 
-        assert_eq!(lexer.tokens.len(), 17);
-        assert_eq!(lexer.tokens[0].kind, TokenKind::And);
-        assert_eq!(lexer.tokens[1].kind, TokenKind::Class);
-        assert_eq!(lexer.tokens[2].kind, TokenKind::Else);
-        assert_eq!(lexer.tokens[3].kind, TokenKind::False);
-        assert_eq!(lexer.tokens[4].kind, TokenKind::Fun);
-        assert_eq!(lexer.tokens[5].kind, TokenKind::For);
-        assert_eq!(lexer.tokens[6].kind, TokenKind::If);
-        assert_eq!(lexer.tokens[7].kind, TokenKind::Nil);
-        assert_eq!(lexer.tokens[8].kind, TokenKind::Or);
-        assert_eq!(lexer.tokens[9].kind, TokenKind::Echo);
-        assert_eq!(lexer.tokens[10].kind, TokenKind::Return);
-        assert_eq!(lexer.tokens[11].kind, TokenKind::Super);
-        assert_eq!(lexer.tokens[12].kind, TokenKind::This);
-        assert_eq!(lexer.tokens[13].kind, TokenKind::True);
-        assert_eq!(lexer.tokens[14].kind, TokenKind::Mut);
-        assert_eq!(lexer.tokens[15].kind, TokenKind::While);
-        assert_eq!(lexer.tokens[16].kind, TokenKind::Eof);
+        assert_eq!(lexer.tokens.len(), 15);
+        assert_eq!(lexer.tokens[0].kind, TokenKind::Class);
+        assert_eq!(lexer.tokens[1].kind, TokenKind::Else);
+        assert_eq!(lexer.tokens[2].kind, TokenKind::False);
+        assert_eq!(lexer.tokens[3].kind, TokenKind::Fun);
+        assert_eq!(lexer.tokens[4].kind, TokenKind::For);
+        assert_eq!(lexer.tokens[5].kind, TokenKind::If);
+        assert_eq!(lexer.tokens[6].kind, TokenKind::Nil);
+        assert_eq!(lexer.tokens[7].kind, TokenKind::Echo);
+        assert_eq!(lexer.tokens[8].kind, TokenKind::Return);
+        assert_eq!(lexer.tokens[9].kind, TokenKind::Super);
+        assert_eq!(lexer.tokens[10].kind, TokenKind::This);
+        assert_eq!(lexer.tokens[11].kind, TokenKind::True);
+        assert_eq!(lexer.tokens[12].kind, TokenKind::Mut);
+        assert_eq!(lexer.tokens[13].kind, TokenKind::While);
+        assert_eq!(lexer.tokens[14].kind, TokenKind::Eof);
     }
 }
 
@@ -244,6 +244,20 @@ impl Lexer {
                     }
                 } else {
                     self.push_token(TokenKind::Slash, None)
+                }
+            },
+            '&' => {
+                if self.check_next('&') {
+                    self.push_token(TokenKind::And, None);
+                } else {
+                    return Err(format!("unexpected token found while lexing: &"));
+                }
+            }
+            '|' => {
+                if self.check_next('|') {
+                    self.push_token(TokenKind::Or, None);
+                } else {
+                    return Err(format!("unexpected token found while lexing: |"));
                 }
             }
             '"' => self.read_string()?,

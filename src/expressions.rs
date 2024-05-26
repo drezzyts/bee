@@ -9,7 +9,8 @@ pub enum Expression {
     Literal(LiteralExpression),
     Unary(UnaryExpression),
     Variable(VariableExpression),
-    Assignment(AssignmentExpression)
+    Assignment(AssignmentExpression),
+    Logical(LogicalExpression)
 }
 
 impl Expression {
@@ -33,6 +34,12 @@ impl Expression {
             Expression::Assignment(expr) => {
                 Position { line: expr.name.position.line, cstart: expr.name.position.cstart, cend: Expression::position(*expr.value).cend }
             }
+            Expression::Logical(expr) => {
+                let l = Expression::position(*expr.left.clone());
+                let r = Expression::position(*expr.right.clone());
+
+                Position { line: l.line, cstart: l.cstart, cend: r.cend }
+            }
         }
     }
 
@@ -45,6 +52,7 @@ impl Expression {
             (Expression::Unary(_), Expression::Unary(_)) => true,
             (Expression::Variable(_), Expression::Variable(_)) => true,
             (Expression::Assignment(_), Expression::Assignment(_)) => true,
+            (Expression::Logical(_), Expression::Logical(_)) => true,
             _ => false
         }
     }
@@ -57,6 +65,7 @@ impl Expression {
             Expression::Unary(_) => "Unary",
             Expression::Variable(_) => "Variable",
             Expression::Assignment(_) => "Assignment",
+            Expression::Logical(_) => "Logical",
         }
     }
 }
@@ -68,7 +77,8 @@ impl<T> ExpressionVisitable<T> for Expression {
             Expression::Literal(expr) => visitor.visit_literal_expr(expr),
             Expression::Unary(expr) => visitor.visit_unary_expr(expr),
             Expression::Variable(expr) => visitor.visit_var_expr(expr),
-            Expression::Assignment(expr) => visitor.visit_assignment_expr(expr)
+            Expression::Assignment(expr) => visitor.visit_assignment_expr(expr),
+            Expression::Logical(expr) => visitor.visit_logical_expr(expr),
         }
     }
 }
@@ -320,5 +330,22 @@ pub struct AssignmentExpression {
 impl AssignmentExpression {
     pub fn new(name: Token, value: Box<Expression>) -> Self {
         Self { name, value }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct LogicalExpression {
+    pub left: Box<Expression>,
+    pub operator: Token,
+    pub right: Box<Expression>,
+}
+
+impl LogicalExpression {
+    pub fn new(
+        left: Box<Expression>,
+        operator: Token,
+        right: Box<Expression>
+    ) -> Self {
+        Self { left, operator, right }
     }
 }

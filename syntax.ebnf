@@ -3,13 +3,16 @@ program = declaration* EOF ;
 declaration = var_declaration | statement;
 var_declaration = "mut" "?"? IDENTIFIER ( "=" expression )? ";" ; 
 
-statement = expression_statement | echo_statement | block_statement ;
+statement = expression_statement | echo_statement | block_statement | if_statement ;
 echo_statement = "echo" expression ";" ;
 expression_statement = expression ";" ;
 block_statement = "{" declaration* "}" ;
+if_statement = "if" "(" expression ")" statement ("else" statement)? ; 
 
 expression = assignment ;
-assignment = IDENTIFIER "=" assignment | equality ;
+assignment = IDENTIFIER "=" assignment | or ;
+or = and ("||" expression)* ;
+and = equality ("&&" expression)* ;
 equality = comparison ( ( "!=" | "==") comparison )* ;
 comparsion = term ( (">" | ">=" | "<" | "<=") term)* ;
 term = factor ( ("-" | "+") factor )* ;

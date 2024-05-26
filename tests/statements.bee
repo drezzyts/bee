@@ -27,3 +27,15 @@ mut blocks = 0;
 
 blocks = blocks - 1;
 echo blocks + " blocks";
+
+
+// If Statement
+
+mut age = 18;
+
+if (age >= 18) 
+  echo ">= 18";
+else if (age >= 16)
+  echo ">= 16";
+else 
+  echo "< 16";

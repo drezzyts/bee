@@ -1,5 +1,5 @@
 use crate::{
-    error::BeeError, expressions::*, position, statements::{self, *}, token::{Token, TokenKind}
+    error::BeeError, expressions::{self, *}, position, statements::{self, *}, token::{Token, TokenKind}
 };
 
 pub struct Parser {
@@ -91,8 +91,34 @@ impl Parser {
         match self.peek().kind {
             TokenKind::LeftBrace => Ok(self.block_stmt()?),
             TokenKind::Echo => Ok(self.echo_stmt()?),
+            TokenKind::If => Ok(self.if_stmt()?),
             _ => self.expression_stmt()
         }
+    }
+
+    fn if_stmt(&mut self) -> Result<Statement, String> {
+        self.eat(TokenKind::If)?;
+
+        self.eat(TokenKind::LeftParen)?;
+        let condition = self.expression()?;
+        self.eat(TokenKind::RightParen)?;
+
+        let consequent = self.statement()?;
+        let mut alternate: Option<Box<Statement>> = None;
+
+        if self.is_curr(TokenKind::Else) {
+            self.eat(TokenKind::Else)?;
+            let statement = self.statement()?;
+            alternate = Some(Box::new(statement));
+        }
+
+        let statement = IfStatement::new(
+            Box::new(condition), 
+            Box::new(consequent), 
+            alternate
+        );
+
+        Ok(Statement::If(statement))
     }
 
     fn block_stmt(&mut self) -> Result<Statement, String> {
@@ -130,7 +156,7 @@ impl Parser {
     }
 
     fn assignment_expr(&mut self) -> Result<Expression, String> {
-        let expression = self.equality()?;
+        let expression = self.or()?;
 
         if self.is_curr(TokenKind::Equal) {
             self.next();
@@ -148,6 +174,32 @@ impl Parser {
         }
 
         Ok(expression)
+    }
+
+    fn or(&mut self) -> Result<Expression, String> {
+        let mut left = self.and()?;
+
+        while self.is_curr(TokenKind::Or) {
+            let operator = self.eat(TokenKind::Or)?;
+            let right = self.and()?;
+            let expression = LogicalExpression::new(Box::new(left), operator, Box::new(right));
+            left = Expression::Logical(expression);
+        }
+
+        Ok(left)
+    }
+
+    fn and(&mut self) -> Result<Expression, String> {
+        let mut left = self.equality()?;
+
+        while self.is_curr(TokenKind::And) {
+            let operator = self.eat(TokenKind::And)?;
+            let right = self.equality()?;
+            let expression = LogicalExpression::new(Box::new(left), operator, Box::new(right));
+            left = Expression::Logical(expression);
+        }
+
+        Ok(left)    
     }
 
     fn equality(&mut self) -> Result<Expression, String> {

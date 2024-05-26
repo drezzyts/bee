@@ -1,4 +1,4 @@
-use crate::{enviroment::Enviroment, expressions::*, statements::*};
+use crate::{expressions::*, statements::*};
 
 pub trait ExpressionVisitor<T> {
     fn visit_binary_expr(&mut self, expr: &BinaryExpression) -> T;
@@ -7,6 +7,7 @@ pub trait ExpressionVisitor<T> {
     fn visit_unary_expr(&mut self, expr: &UnaryExpression) -> T;
     fn visit_var_expr(&mut self, expr: &VariableExpression) -> T;
     fn visit_assignment_expr(&mut self, expr: &AssignmentExpression) -> T;
+    fn visit_logical_expr(&mut self, expr: &LogicalExpression) -> T;
 }
 
 pub trait ExpressionVisitable<T> {
@@ -18,6 +19,7 @@ pub trait StatementVisitor<T> {
     fn visit_echo_stmt(&mut self, stmt: &EchoStatement) -> T;
     fn visit_var_stmt(&mut self, stmt: &VariableStatement) -> T;
     fn visit_block_stmt(&mut self, stmt: &BlockStatement) -> T;
+    fn visit_if_stmt(&mut self, stmt: &IfStatement) -> T;
 }
 
 pub trait StatementVisitable<T> {

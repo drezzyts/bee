@@ -127,6 +127,25 @@ impl ExpressionVisitor<Result<LiteralValue, BeeError>> for Interpreter {
 
         Ok(value)
     }
+    
+    fn visit_logical_expr(&mut self, expr: &LogicalExpression) -> Result<LiteralValue, BeeError> {
+        let left = self.evaluate(*expr.left.clone())?;
+        let right = self.evaluate(*expr.right.clone())?;
+
+        let value = match expr.operator.kind {
+            TokenKind::Or => self.is_truthy(left) || self.is_truthy(right),
+            TokenKind::And => self.is_truthy(left) && self.is_truthy(right),
+            _ => {
+                dbg!(expr.operator.kind.clone());
+                false
+            }
+        };
+
+        match value {
+            true => Ok(LiteralValue::True),
+            false => Ok(LiteralValue::False)
+        }
+    }
 }
 
 impl StatementVisitor<Result<(), BeeError>> for Interpreter {
@@ -187,6 +206,20 @@ impl StatementVisitor<Result<(), BeeError>> for Interpreter {
 
         self.enviroment = previous;
         
+        Ok(())
+    }
+    
+    fn visit_if_stmt(&mut self, stmt: &IfStatement) -> Result<(), BeeError> {
+        let result = self.evaluate(*stmt.condition.clone())?;
+        
+        if self.is_truthy(result) {
+            self.execute(*stmt.consequent.clone())?;
+        } else {
+            if let Some(alternate) = stmt.alternate.clone() {
+                self.execute(*alternate)?;
+            }
+        }
+
         Ok(())
     }
 }
