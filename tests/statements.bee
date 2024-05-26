@@ -9,3 +9,21 @@ echo 10 * 5;
 mut? name = "drezzy"; // constant
 mut age;
 age = 18;
+
+// Block Statement
+mut blocks = 0;
+
+{
+  blocks = blocks + 1;
+  
+  {
+    blocks = blocks + 1;
+    echo blocks + " blocks";
+  
+  }
+  blocks = blocks - 1;
+  echo blocks + " blocks";
+}
+
+blocks = blocks - 1;
+echo blocks + " blocks";

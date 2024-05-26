@@ -1,9 +1,9 @@
-use std::collections::HashMap;
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::expressions::LiteralValue
 ;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Variable {
     pub name: String,
     pub constant: bool,
@@ -15,14 +15,18 @@ impl Variable {
         Self { name, constant, value }
     }
 }
+
+#[derive(Clone, Debug)]
 pub struct Enviroment {
     pub values: HashMap<String, Variable>,
+    pub enclosing: Option<Rc<RefCell<Enviroment>>>
 }
 
 impl Enviroment {
     pub fn new() -> Self {
         Self {
             values: HashMap::new(),
+            enclosing: None 
         }
     }
 
@@ -49,16 +53,26 @@ impl Enviroment {
             return Ok(value);
         }
 
+        if let Some(scope) = &self.enclosing {
+            return scope.borrow_mut().assign(name.clone(), value);
+        }
+
         Err(format!("attempt to reassign a value to a undefined variable: '{name}'"))
     }
 
-    pub fn get(&self, name: String) -> LiteralValue {
+    pub fn get(&self, name: String) -> Result<LiteralValue, String> { 
         if self.has(name.clone()) {
             let variable = self.values.get(name.as_str()).unwrap().clone();
-            variable.value.clone()
-        } else {
-            LiteralValue::Nil
+            return Ok(variable.value.clone())
+        } 
+        
+        let error = format!("referenced a variable that is not defined: '{name}'");
+
+        if let Some(scope) = &self.enclosing {
+            return scope.borrow().get(name);
         }
+
+        Err(error)
     }
 
     pub fn get_variable_struct(&self, name: String) -> Option<Variable> {

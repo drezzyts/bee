@@ -6,7 +6,8 @@ use crate::{
 pub enum Statement {
     Expression(ExpressionStatement),
     Echo(EchoStatement),
-    Variable(VariableStatement)
+    Variable(VariableStatement),
+    Block(BlockStatement)
 }
 
 impl Statement {
@@ -21,6 +22,7 @@ impl Statement {
             Statement::Variable(stmt) => {
                 stmt.name.position.clone()
             }
+            Statement::Block(_) => unreachable!()
         }
     }
 }
@@ -32,6 +34,7 @@ impl<T> StatementVisitable<T> for Statement {
             Statement::Expression(stmt) => visitor.visit_expr_stmt(stmt),
             Statement::Echo(stmt) => visitor.visit_echo_stmt(stmt),
             Statement::Variable(stmt) => visitor.visit_var_stmt(stmt),
+            Statement::Block(stmt) => visitor.visit_block_stmt(stmt),
             _ => unimplemented!(),
         }
     }
@@ -68,5 +71,18 @@ pub struct VariableStatement {
 impl VariableStatement {
     pub fn new(name: Token, initializer: Option<Expression>, constant: bool) -> Self {
         Self { name, initializer, constant }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct BlockStatement {
+    pub left: Token,
+    pub statements: Vec<Box<Statement>>,
+    pub right: Token
+}
+
+impl BlockStatement {
+    pub fn new(left: Token, statements: Vec<Box<Statement>>, right: Token) -> Self {
+        Self { left, statements, right }
     }
 }

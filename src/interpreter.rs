@@ -1,33 +1,36 @@
+use std::{cell::RefCell, rc::Rc};
+
 use crate::{
     enviroment::Enviroment, error::BeeError, expressions::*, statements::*, token::TokenKind, visitors::{ExpressionVisitable, ExpressionVisitor, StatementVisitable, StatementVisitor}
 };
 
 pub struct Interpreter {
-    pub enviroment: Enviroment,
+    pub enviroment: Rc<RefCell<Enviroment>>,
     pub source: String
 }
 
 impl Interpreter {
     pub fn new() -> Self {
         Self {
-            enviroment: Enviroment::new(),
+            enviroment: Rc::new(RefCell::new(Enviroment::new())),
             source: "".to_string()
         }
     }
+
     pub fn interpret(&mut self, program: Vec<Statement>, source: String) -> Result<(), BeeError> {
         self.source = source.clone();
-
+        
         for stmt in program {
             self.execute(stmt)?;
         }
-
+        
         Ok(())
     }
-
+    
     fn evaluate(&mut self, expression: Expression) -> Result<LiteralValue, BeeError> {
         expression.accept(self as &mut dyn ExpressionVisitor<Result<LiteralValue, BeeError>>)
     }
-
+    
     fn execute(&mut self, statement: Statement) -> Result<(), BeeError> {
         statement.accept(self as &mut dyn StatementVisitor<Result<(), BeeError>>)
     }
@@ -93,12 +96,25 @@ impl ExpressionVisitor<Result<LiteralValue, BeeError>> for Interpreter {
     }
 
     fn visit_var_expr(&mut self, expr: &VariableExpression) -> Result<LiteralValue, BeeError> {
-        Ok(self.enviroment.get(expr.name.lexeme.clone()))
+        match self.enviroment.borrow_mut().get(expr.name.lexeme.clone()) {
+            Err(message) => {
+                let expression = Expression::Variable(expr.clone());
+                let error = BeeError::report(
+                    &Expression::position(expression), 
+                    message.as_str(), 
+                    "interpreter", 
+                    self.source.clone()
+                );
+                Err(error)
+            },
+            Ok(value) => Ok(value)
+        }
     }
 
     fn visit_assignment_expr(&mut self, expr: &AssignmentExpression) -> Result<LiteralValue, BeeError> {
         let value = self.evaluate(*expr.value.clone())?;
-        if let Err(message) = self.enviroment.assign(expr.name.lexeme.clone(), value.clone()) {
+        
+        if let Err(message) = self.enviroment.borrow_mut().assign(expr.name.lexeme.clone(), value.clone()) {
             let error = BeeError::report(
                 &Expression::position(Expression::Assignment(expr.clone())),
                 &message,
@@ -144,7 +160,7 @@ impl StatementVisitor<Result<(), BeeError>> for Interpreter {
             LiteralValue::Nil
         };
 
-        if let Err(message) = self.enviroment.define(stmt.name.lexeme.clone(), stmt.constant, value) {
+        if let Err(message) = self.enviroment.borrow_mut().define(stmt.name.lexeme.clone(), stmt.constant, value) {
             let error = BeeError::report(
                 &Statement::Variable(stmt.clone()).position(),
                 &message,
@@ -155,6 +171,22 @@ impl StatementVisitor<Result<(), BeeError>> for Interpreter {
             return Err(error);
         };
 
+        Ok(())
+    }
+    
+    fn visit_block_stmt(&mut self, stmt: &BlockStatement) -> Result<(), BeeError> {
+        let previous = self.enviroment.clone();
+        let mut env = Enviroment::new();
+        env.enclosing = Some(previous.clone());
+
+        self.enviroment = Rc::new(RefCell::new(env));
+
+        for statement in stmt.statements.clone() {
+            self.execute(*statement)?;
+        }
+
+        self.enviroment = previous;
+        
         Ok(())
     }
 }

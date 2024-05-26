@@ -1,5 +1,5 @@
 use crate::{
-    error::BeeError, expressions::*, position, statements::*, token::{Token, TokenKind}
+    error::BeeError, expressions::*, position, statements::{self, *}, token::{Token, TokenKind}
 };
 
 pub struct Parser {
@@ -88,11 +88,26 @@ impl Parser {
     }
 
     fn statement(&mut self) -> Result<Statement, String> {
-        if self.is_curr(TokenKind::Echo) {
-            self.echo_stmt()
-        } else {
-            self.expression_stmt()
+        match self.peek().kind {
+            TokenKind::LeftBrace => Ok(self.block_stmt()?),
+            TokenKind::Echo => Ok(self.echo_stmt()?),
+            _ => self.expression_stmt()
         }
+    }
+
+    fn block_stmt(&mut self) -> Result<Statement, String> {
+        let left: Token = self.eat(TokenKind::LeftBrace)?;
+        
+        let mut statements: Vec<Box<Statement>> = vec![];
+
+        while !self.is_curr(TokenKind::RightBrace) && !self.is_eof() {
+            statements.push(Box::new(self.declaration()?));
+        }
+
+        let right: Token = self.eat(TokenKind::RightBrace)?;
+        let statement = BlockStatement::new(left, statements, right);
+        
+        Ok(Statement::Block(statement))
     }
 
     fn echo_stmt(&mut self) -> Result<Statement, String> {

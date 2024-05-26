@@ -3,9 +3,10 @@ program = declaration* EOF ;
 declaration = var_declaration | statement;
 var_declaration = "mut" "?"? IDENTIFIER ( "=" expression )? ";" ; 
 
-statement = expression_statement | echo_statement ;
+statement = expression_statement | echo_statement | block_statement ;
 echo_statement = "echo" expression ";" ;
 expression_statement = expression ";" ;
+block_statement = "{" declaration* "}" ;
 
 expression = assignment ;
 assignment = IDENTIFIER "=" assignment | equality ;
