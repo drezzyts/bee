@@ -103,7 +103,11 @@ pub enum LiteralValue {
     False,
     Nil,
     NaN,
-    Callable { arity: usize, name: String, fun: Rc<dyn Fn(Vec<LiteralValue>) -> LiteralValue> }
+    Callable { 
+        arity: usize, 
+        name: String, 
+        fun: Rc<dyn Fn(Vec<LiteralValue>) -> LiteralValue> 
+    }
 }
 
 impl Debug for LiteralValue {

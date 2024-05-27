@@ -1,7 +1,7 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::{Ref, RefCell}, rc::Rc};
 
 use crate::{
-    enviroment::Enviroment, error::BeeError, expressions::*, token::TokenKind, visitors::{ExpressionVisitable, ExpressionVisitor, StatementVisitable, StatementVisitor}
+    enviroment::{self, Enviroment}, error::BeeError, expressions::*, token::TokenKind, visitors::{ExpressionVisitable, ExpressionVisitor, StatementVisitable, StatementVisitor}
 };
 
 use crate::statements::*;
@@ -27,19 +27,20 @@ impl Interpreter {
         let mut env = Enviroment::new();
         env.define("print".to_string(), true, print).unwrap();
         
-        let globals = Rc::new(RefCell::new(env));
-        
         Self {
-            enviroment: globals.clone(),
-            globals,
+            enviroment: Rc::new(RefCell::new(env)),
+            globals: Rc::new(RefCell::new(Enviroment::new())),
             source: "".to_string()
         }
     }
 
     pub fn from_closure(env: Rc<RefCell<Enviroment>>, source: String) -> Self {
+        let enviroment = Rc::new(RefCell::new(Enviroment::new()));
+        enviroment.borrow_mut().enclosing = Some(env.clone());
+        
         Self {
-            enviroment: env.clone(),
-            globals: env.clone(),
+            enviroment: enviroment,
+            globals: Rc::new(RefCell::new(Enviroment::new())),
             source
         }
     }
@@ -297,18 +298,20 @@ impl StatementVisitor<Result<(), BeeError>> for Interpreter {
     }
     
     fn visit_fun_stmt(&mut self, stmt: &FunctionStatement) -> Result<(), BeeError> {
-        let params = stmt.params.clone(); // Clonando os parâmetros
+        let params = stmt.params.clone(); 
         let name = stmt.name.lexeme.clone();
-        let globals = self.globals.clone(); // Clone self.globals
         let source = self.source.clone();
         let body = stmt.body.clone();
+        let env = self.enviroment.clone();
 
         let fun = move |args: Vec<LiteralValue>| -> LiteralValue {
             let mut environment = Enviroment::new();
-            environment.enclosing = Some(globals.clone());
+            environment.enclosing = Some(env.clone());
     
             for (i, param) in params.iter().enumerate() {
-                environment.define(param.lexeme.clone(), true, args[i].clone());
+                if let Err(err) = environment.define(param.lexeme.clone(), true, args[i].clone()) {
+                    panic!("{}", err);
+                }
             }
     
             let mut intp = Interpreter::from_closure(Rc::new(RefCell::new(environment)), source.clone());
@@ -319,6 +322,13 @@ impl StatementVisitor<Result<(), BeeError>> for Interpreter {
             };
     
             if let Err(err) = err {
+                if err.location == "return" {
+                    match err.object {
+                        None => return LiteralValue::Nil,
+                        Some(value) => return value
+                    };
+                }
+                
                 panic!("{}", err.message);
             }
     
@@ -335,5 +345,15 @@ impl StatementVisitor<Result<(), BeeError>> for Interpreter {
             Ok(_) => Ok(()),
             Err(err) => Err(BeeError::report(&stmt.name.position, &err, "interpreter", self.source.clone()))
         }
+    }
+    
+    fn visist_return_stmt(&mut self, stmt: &ReturnStatement) -> Result<(), BeeError> {
+        let value = if let Some(value) = stmt.value.clone() {
+            Some(self.evaluate(*value.clone())?)
+        } else {
+            None
+        };
+
+        Err(BeeError::return_v("return", &stmt.keyword.position, value))
     }
 }

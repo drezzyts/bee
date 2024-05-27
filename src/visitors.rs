@@ -23,6 +23,7 @@ pub trait StatementVisitor<T> {
     fn visit_if_stmt(&mut self, stmt: &IfStatement) -> T;
     fn visit_while_stmt(&mut self, stmt: &WhileStatement) -> T;
     fn visit_fun_stmt(&mut self, stmt: &FunctionStatement) -> T;
+    fn visist_return_stmt(&mut self, stmt: &ReturnStatement) -> T;
 }
 
 pub trait StatementVisitable<T> {

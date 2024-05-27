@@ -1,14 +1,24 @@
-use crate::{position::Position, token::Token};
+use crate::{expressions::LiteralValue, position::Position, token::Token};
 
 pub struct BeeError {
     pub position: Position,
     pub message: String,
     pub location: String,
+    pub object: Option<LiteralValue>
 }
 
 impl BeeError {
     pub fn error(position: &Position, message: &str, source: String) -> Self {
         BeeError::report(position, message, "", source)
+    }
+
+    pub fn return_v(location: &str, position: &Position, value: Option<LiteralValue>) -> Self {
+        Self  {
+            location: location.to_string(),
+            message: "".to_string(),
+            position: position.clone(),
+            object: value
+        }
     }
 
     pub fn report(position: &Position, message: &str, location: &str, source: String) -> Self {
@@ -24,6 +34,7 @@ impl BeeError {
             position: position.clone(),
             message: parsed,
             location: location.to_string(),
+            object: None,
         }
     }
 

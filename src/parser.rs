@@ -128,8 +128,23 @@ impl Parser {
             TokenKind::If => Ok(self.if_stmt()?),
             TokenKind::While => Ok(self.while_stmt()?),
             TokenKind::For => Ok(self.for_stmt()?),
+            TokenKind::Return => Ok(self.return_stmt()?),
             _ => self.expression_stmt()
         }
+    }
+
+    fn return_stmt(&mut self) -> Result<Statement, String> {
+        let keyword: Token = self.eat(TokenKind::Return)?;
+        let mut value: Option<Box<Expression>> = None;
+
+        if !self.is_curr(TokenKind::SemiColon) {
+            value = Some(Box::new(self.expression()?));
+        }
+
+        self.eat(TokenKind::SemiColon)?;
+
+        let stmt = ReturnStatement::new(keyword, value);
+        Ok(Statement::Return(stmt))
     }
 
     fn for_stmt(&mut self) -> Result<Statement, String> {
@@ -390,12 +405,13 @@ impl Parser {
                     return Err("function cannot have more than 255 arguments.".to_string());
                 }
                 
-                if self.peek().kind != TokenKind::Comma {
-                    self.eat(TokenKind::RightParen)?;
+                if self.next().kind != TokenKind::Comma {
                     break;
                 } 
 
             }
+        } else {
+            self.eat(TokenKind::RightParen)?;
         }
 
         let call = CallExpression::new(

@@ -11,6 +11,7 @@ pub enum Statement {
     If(IfStatement),
     While(WhileStatement),
     Function(FunctionStatement),
+    Return(ReturnStatement),
 }
 
 impl Statement {
@@ -25,10 +26,11 @@ impl Statement {
             Statement::Variable(stmt) => {
                 stmt.name.position.clone()
             }
+            Statement::Return(stmt) => stmt.keyword.position.clone(), 
             Statement::Block(_) => unreachable!(),
             Statement::If(_) => unreachable!(),
             Statement::While(_) => unreachable!(),
-            Statement::Function(_) => unreachable!()
+            Statement::Function(_) => unreachable!(),
         }
     }
 }
@@ -44,6 +46,7 @@ impl<T> StatementVisitable<T> for Statement {
             Statement::If(stmt) => visitor.visit_if_stmt(stmt),
             Statement::While(stmt) => visitor.visit_while_stmt(stmt),
             Statement::Function(stmt) => visitor.visit_fun_stmt(stmt),
+            Statement::Return(stmt) => visitor.visist_return_stmt(stmt),
             _ => unimplemented!(),
         }
     }
@@ -139,5 +142,17 @@ pub struct FunctionStatement {
 impl FunctionStatement {
     pub fn new(name: Token, params: Vec<Token>, body: Box<Statement>) -> Self {
         Self { name, params, body }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ReturnStatement {
+    pub keyword: Token,
+    pub value: Option<Box<Expression>>
+}
+
+impl ReturnStatement {
+    pub fn new(keyword: Token, value: Option<Box<Expression>>) -> Self {
+        Self { keyword, value }
     }
 }
