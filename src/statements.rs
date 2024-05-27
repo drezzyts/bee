@@ -1,5 +1,5 @@
 use crate::{
-    expressions::{self, Expression}, position::Position, token::Token, visitors::{StatementVisitable, StatementVisitor}
+    expressions::{self, Expression}, position::Position, token::Token, visitors::{self, StatementVisitable, StatementVisitor}
 };
 
 #[derive(Debug, Clone)]
@@ -10,6 +10,7 @@ pub enum Statement {
     Block(BlockStatement),
     If(IfStatement),
     While(WhileStatement),
+    Function(FunctionStatement),
 }
 
 impl Statement {
@@ -27,6 +28,7 @@ impl Statement {
             Statement::Block(_) => unreachable!(),
             Statement::If(_) => unreachable!(),
             Statement::While(_) => unreachable!(),
+            Statement::Function(_) => unreachable!()
         }
     }
 }
@@ -41,6 +43,7 @@ impl<T> StatementVisitable<T> for Statement {
             Statement::Block(stmt) => visitor.visit_block_stmt(stmt),
             Statement::If(stmt) => visitor.visit_if_stmt(stmt),
             Statement::While(stmt) => visitor.visit_while_stmt(stmt),
+            Statement::Function(stmt) => visitor.visit_fun_stmt(stmt),
             _ => unimplemented!(),
         }
     }
@@ -123,5 +126,18 @@ impl WhileStatement {
         body: Box<Statement>
     ) -> Self {
         Self { condition, body }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct FunctionStatement {
+    pub name: Token,
+    pub params: Vec<Token>,
+    pub body: Box<Statement>
+}
+
+impl FunctionStatement {
+    pub fn new(name: Token, params: Vec<Token>, body: Box<Statement>) -> Self {
+        Self { name, params, body }
     }
 }

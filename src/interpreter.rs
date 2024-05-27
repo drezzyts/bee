@@ -1,19 +1,46 @@
 use std::{cell::RefCell, rc::Rc};
 
 use crate::{
-    enviroment::Enviroment, error::BeeError, expressions::*, statements::*, token::TokenKind, visitors::{ExpressionVisitable, ExpressionVisitor, StatementVisitable, StatementVisitor}
+    enviroment::Enviroment, error::BeeError, expressions::*, token::TokenKind, visitors::{ExpressionVisitable, ExpressionVisitor, StatementVisitable, StatementVisitor}
 };
 
+use crate::statements::*;
+
+#[derive(Clone)]
 pub struct Interpreter {
+    pub globals: Rc<RefCell<Enviroment>>,
     pub enviroment: Rc<RefCell<Enviroment>>,
     pub source: String
 }
 
 impl Interpreter {
     pub fn new() -> Self {
+        let print = LiteralValue::Callable {
+            arity: 1, 
+            name: "print".to_string(), 
+            fun: Rc::new(|args: Vec<LiteralValue>| {
+                println!("{}", args[0]);
+                LiteralValue::Nil
+            }) 
+        };
+
+        let mut env = Enviroment::new();
+        env.define("print".to_string(), true, print).unwrap();
+        
+        let globals = Rc::new(RefCell::new(env));
+        
         Self {
-            enviroment: Rc::new(RefCell::new(Enviroment::new())),
+            enviroment: globals.clone(),
+            globals,
             source: "".to_string()
+        }
+    }
+
+    pub fn from_closure(env: Rc<RefCell<Enviroment>>, source: String) -> Self {
+        Self {
+            enviroment: env.clone(),
+            globals: env.clone(),
+            source
         }
     }
 
@@ -146,6 +173,37 @@ impl ExpressionVisitor<Result<LiteralValue, BeeError>> for Interpreter {
             false => Ok(LiteralValue::False)
         }
     }
+    
+    fn visit_call_expr(&mut self, expr: &CallExpression) -> Result<LiteralValue, BeeError> {
+        let callee = self.evaluate(*expr.callee.clone())?;
+        let mut arguments: Vec<LiteralValue> = vec![];
+
+        for argument in expr.args.clone() {
+            arguments.push(self.evaluate(*argument.clone())?);
+        }
+        
+        match callee {
+            LiteralValue::Callable { arity, name, fun } => {
+                if arguments.len() < arity {
+                    return Err(BeeError::report(
+                        &Expression::position(*expr.callee.clone()), 
+                        format!("{name} function expected {arity} arguments, but has founded only {}", arguments.len()).as_str(),
+                        "interpreter", 
+                        self.source.clone()
+                    ));
+                }
+
+                let result = (fun)(arguments);
+                Ok(result)
+            },
+            _ => Err(BeeError::report(
+                &Expression::position(*expr.callee.clone()), 
+                "called using an invalid callee.",
+                "interpreter", 
+                self.source.clone()
+            ))
+        }
+    }
 }
 
 impl StatementVisitor<Result<(), BeeError>> for Interpreter {
@@ -166,6 +224,7 @@ impl StatementVisitor<Result<(), BeeError>> for Interpreter {
             LiteralValue::True => String::from("true"),
             LiteralValue::False => String::from("false"),
             LiteralValue::NaN => String::from("nan"),
+            LiteralValue::Callable { arity: _, name, fun: _ } => name.clone()
         };
 
         println!("{response}");
@@ -235,5 +294,46 @@ impl StatementVisitor<Result<(), BeeError>> for Interpreter {
         }
 
         Ok(())
+    }
+    
+    fn visit_fun_stmt(&mut self, stmt: &FunctionStatement) -> Result<(), BeeError> {
+        let params = stmt.params.clone(); // Clonando os parâmetros
+        let name = stmt.name.lexeme.clone();
+        let globals = self.globals.clone(); // Clone self.globals
+        let source = self.source.clone();
+        let body = stmt.body.clone();
+
+        let fun = move |args: Vec<LiteralValue>| -> LiteralValue {
+            let mut environment = Enviroment::new();
+            environment.enclosing = Some(globals.clone());
+    
+            for (i, param) in params.iter().enumerate() {
+                environment.define(param.lexeme.clone(), true, args[i].clone());
+            }
+    
+            let mut intp = Interpreter::from_closure(Rc::new(RefCell::new(environment)), source.clone());
+    
+            let err = match *body.clone() {
+                Statement::Block(block) => intp.visit_block_stmt(&block),
+                _ => unreachable!()
+            };
+    
+            if let Err(err) = err {
+                panic!("{}", err.message);
+            }
+    
+            LiteralValue::Nil
+        };
+    
+        let value = LiteralValue::Callable {
+            arity: stmt.params.len(),
+            name,
+            fun: Rc::new(fun)
+        };
+    
+        match self.enviroment.borrow_mut().define(stmt.name.lexeme.clone(), true, value) {
+            Ok(_) => Ok(()),
+            Err(err) => Err(BeeError::report(&stmt.name.position, &err, "interpreter", self.source.clone()))
+        }
     }
 }

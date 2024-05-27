@@ -1,3 +1,6 @@
+use core::fmt;
+use std::{cell::RefCell, fmt::Debug, path::Display, rc::Rc};
+
 use crate::{
     position::{self, Position}, token::{Token, TokenKind}, visitors::{ExpressionVisitable, ExpressionVisitor}
 };
@@ -10,8 +13,10 @@ pub enum Expression {
     Unary(UnaryExpression),
     Variable(VariableExpression),
     Assignment(AssignmentExpression),
-    Logical(LogicalExpression)
+    Logical(LogicalExpression),
+    Call(CallExpression),
 }
+
 
 impl Expression {
     pub fn position(expr: Expression) -> Position {
@@ -40,6 +45,9 @@ impl Expression {
 
                 Position { line: l.line, cstart: l.cstart, cend: r.cend }
             }
+            Expression::Call(expr) => {
+                Expression::position(*expr.callee.clone())
+            }
         }
     }
 
@@ -66,6 +74,7 @@ impl Expression {
             Expression::Variable(_) => "Variable",
             Expression::Assignment(_) => "Assignment",
             Expression::Logical(_) => "Logical",
+            Expression::Call(_) => "Call",
         }
     }
 }
@@ -79,11 +88,12 @@ impl<T> ExpressionVisitable<T> for Expression {
             Expression::Variable(expr) => visitor.visit_var_expr(expr),
             Expression::Assignment(expr) => visitor.visit_assignment_expr(expr),
             Expression::Logical(expr) => visitor.visit_logical_expr(expr),
+            Expression::Call(expr) => visitor.visit_call_expr(expr)
         }
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone)]
 pub enum LiteralValue {
     Float(f64),
     Integer(i64),
@@ -93,6 +103,51 @@ pub enum LiteralValue {
     False,
     Nil,
     NaN,
+    Callable { arity: usize, name: String, fun: Rc<dyn Fn(Vec<LiteralValue>) -> LiteralValue> }
+}
+
+impl Debug for LiteralValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Float(arg0) => f.debug_tuple("Float").field(arg0).finish(),
+            Self::Integer(arg0) => f.debug_tuple("Integer").field(arg0).finish(),
+            Self::Char(arg0) => f.debug_tuple("Char").field(arg0).finish(),
+            Self::String(arg0) => f.debug_tuple("String").field(arg0).finish(),
+            Self::True => write!(f, "True"),
+            Self::False => write!(f, "False"),
+            Self::Nil => write!(f, "Nil"),
+            Self::NaN => write!(f, "NaN"),
+            Self::Callable { arity, name, fun: _ } => write!(f, "{name}:{arity}")
+        }
+    }
+}
+
+impl fmt::Display for LiteralValue {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Float(arg0) => write!(f, "{}", arg0),
+            Self::Integer(arg0) => write!(f, "{}", arg0),
+            Self::Char(arg0) => write!(f, "{}", arg0),
+            Self::String(arg0) => write!(f, "{}", arg0),
+            Self::True => write!(f, "True"),
+            Self::False => write!(f, "False"),
+            Self::Nil => write!(f, "Nil"),
+            Self::NaN => write!(f, "NaN"),
+            Self::Callable { arity, name, fun: _ } => write!(f, "{name}:{arity}")
+        }
+    }
+}
+
+impl PartialEq for LiteralValue {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Float(l0), Self::Float(r0)) => l0 == r0,
+            (Self::Integer(l0), Self::Integer(r0)) => l0 == r0,
+            (Self::Char(l0), Self::Char(r0)) => l0 == r0,
+            (Self::String(l0), Self::String(r0)) => l0 == r0,
+            _ => core::mem::discriminant(self) == core::mem::discriminant(other),
+        }
+    }
 }
 
 impl LiteralValue {
@@ -347,5 +402,22 @@ impl LogicalExpression {
         right: Box<Expression>
     ) -> Self {
         Self { left, operator, right }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct CallExpression {
+    pub callee: Box<Expression>,
+    pub paren: Token,
+    pub args: Vec<Box<Expression>>,
+}
+
+impl CallExpression {
+    pub fn new(
+        callee: Box<Expression>,
+        paren: Token,
+        args: Vec<Box<Expression>>
+    ) -> Self {
+        Self { callee, paren, args }
     }
 }

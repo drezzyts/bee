@@ -1,6 +1,9 @@
 program = declaration* EOF ;
 
-declaration = var_declaration | statement;
+declaration = func_declaration | var_declaration | statement;
+func_declaration = "fun" function ;
+function = IDENTIFIER "(" parameters? ")" ;
+parameters = IDENTIFIER ( "," IDENTIFIER )* ;
 var_declaration = "mut" "?"? IDENTIFIER ( "=" expression )? ";" ; 
 
 statement = expression_statement | echo_statement | block_statement | if_statement | for_statement | while_statement ;
@@ -19,5 +22,7 @@ equality = comparison ( ( "!=" | "==") comparison )* ;
 comparsion = term ( (">" | ">=" | "<" | "<=") term)* ;
 term = factor ( ("-" | "+") factor )* ;
 factor = unary ( ("/" | "*") unary )* ;
-unary = ( "-" | "!" ) unary | primary ;
-primary = NUMBER | STRING | "true" | "false" | "nil" | group | IDENTIFIER;
+unary = ( "-" | "!" ) unary | call ;
+call = primary ( "(" arguments? ")")* ;
+arguments = expression ( "," expression )* ;
+primary = NUMBER | STRING | "true" | "false" | "nil" | group | IDENTIFIER ;

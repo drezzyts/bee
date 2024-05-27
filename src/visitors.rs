@@ -1,4 +1,4 @@
-use crate::{expressions::*, statements::*};
+use crate::{expressions::*, interpreter::Interpreter, statements::*};
 
 pub trait ExpressionVisitor<T> {
     fn visit_binary_expr(&mut self, expr: &BinaryExpression) -> T;
@@ -8,6 +8,7 @@ pub trait ExpressionVisitor<T> {
     fn visit_var_expr(&mut self, expr: &VariableExpression) -> T;
     fn visit_assignment_expr(&mut self, expr: &AssignmentExpression) -> T;
     fn visit_logical_expr(&mut self, expr: &LogicalExpression) -> T;
+    fn visit_call_expr(&mut self, expr: &CallExpression) -> T;
 }
 
 pub trait ExpressionVisitable<T> {
@@ -21,6 +22,7 @@ pub trait StatementVisitor<T> {
     fn visit_block_stmt(&mut self, stmt: &BlockStatement) -> T;
     fn visit_if_stmt(&mut self, stmt: &IfStatement) -> T;
     fn visit_while_stmt(&mut self, stmt: &WhileStatement) -> T;
+    fn visit_fun_stmt(&mut self, stmt: &FunctionStatement) -> T;
 }
 
 pub trait StatementVisitable<T> {

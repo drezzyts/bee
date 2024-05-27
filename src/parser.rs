@@ -54,6 +54,8 @@ impl Parser {
     fn declaration(&mut self) -> Result<Statement, String> {
         let result = if self.is_curr(TokenKind::Mut) {
             self.var_declaration()
+        } else if self.is_curr(TokenKind::Fun) {
+            self.fun_declaration("function")
         } else {
             self.statement()
         };
@@ -63,6 +65,38 @@ impl Parser {
             Err(err) => Err(err),
         }
     }
+
+    fn fun_declaration(&mut self, _: &str) -> Result<Statement, String> {
+        self.eat(TokenKind::Fun)?;
+        
+        let name = self.eat(TokenKind::Identifier)?;
+        self.eat(TokenKind::LeftParen)?;
+
+        let mut parameters: Vec<Token> = vec![];
+
+        if !self.is_curr(TokenKind::RightParen) {
+            loop {
+                if parameters.len() > 255 {
+                    return Err("function cannot have more than 255 parameters".to_string());
+                }
+
+                parameters.push(self.eat(TokenKind::Identifier)?);
+
+                if self.peek().kind != TokenKind::Comma {
+                    break;
+                } else {
+                    self.next();
+                }
+            }
+        }
+
+        self.eat(TokenKind::RightParen)?;
+        
+        let body = Box::new(self.block_stmt()?);
+        let stmt = FunctionStatement::new(name, parameters, body);
+        Ok(Statement::Function(stmt))
+    }
+
 
     fn var_declaration(&mut self) -> Result<Statement, String> {
         self.eat(TokenKind::Mut)?;
@@ -326,7 +360,51 @@ impl Parser {
             return Ok(Expression::Unary(expression));
         }
 
-        self.primary()
+        self.call()
+    }
+
+    fn call(&mut self) -> Result<Expression, String> {
+        let mut expr = self.primary()?;
+
+        loop {
+            if self.is_curr(TokenKind::LeftParen) {
+                self.eat(TokenKind::LeftParen)?;
+                expr = self.finish_call(expr)?;
+            } else {
+                break;
+            }
+        }
+
+        Ok(expr)
+    }
+
+    fn finish_call(&mut self, callee: Expression) -> Result<Expression, String> {
+        let mut args: Vec<Box<Expression>> = vec![];
+
+        if !self.is_curr(TokenKind::RightParen) {
+
+            loop {
+                args.push(Box::new(self.expression()?));
+                
+                if args.len() >= 255 {
+                    return Err("function cannot have more than 255 arguments.".to_string());
+                }
+                
+                if self.peek().kind != TokenKind::Comma {
+                    self.eat(TokenKind::RightParen)?;
+                    break;
+                } 
+
+            }
+        }
+
+        let call = CallExpression::new(
+            Box::new(callee),
+            self.peek(),
+            args
+        );
+
+        Ok(Expression::Call(call))
     }
 
     fn primary(&mut self) -> Result<Expression, String> {
