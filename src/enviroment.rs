@@ -93,6 +93,7 @@ impl Enviroment {
     }
 }
 
+
 #[derive(Clone, Debug)]
 pub struct TypeVariable {
     pub name: String,
@@ -125,12 +126,17 @@ impl TypeEnviroment {
   }
 
   pub fn lookup(&mut self, name: String) -> Result<Type, String> {
-    match self.values.contains_key(name.as_str()) {
-        true => {
-            let variable = self.values.get(name.as_str()).unwrap();
-            Ok(variable.value.clone())
-        }
-        false => Err(format!("referenced a value that is not defined.")),
+    let variable = self.resolve(name)?;
+    Ok(variable.value.clone())
+  }
+
+  pub fn resolve(&self, name: String) -> Result<TypeVariable, String> {
+    if self.values.contains_key(name.as_str()) {
+        Ok(self.values.get(name.as_str()).unwrap().clone())
+    } else if let Some(scope) = self.enclosing.clone() {
+        Ok(scope.borrow().resolve(name)?.clone())
+    } else {
+        Err(format!("variable {name} has referenced, but this is not defined."))
     }
   }
 }

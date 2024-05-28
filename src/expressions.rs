@@ -28,7 +28,18 @@ impl Expression {
                 Position { line: expr.left.position.line, cstart: expr.left.position.cstart, cend: expr.right.position.cend }
             }
             Expression::Literal(expr) => {
-                expr.token.position.clone()
+                match expr.value.clone() {
+                    LiteralValue::String(_) => {
+                        let mut pos = expr.token.position.clone();
+                        pos.cstart -= 3;
+                        pos
+                    },
+                    _ => {
+                        let mut pos = expr.token.position.clone();
+                        pos.cstart -= 2;
+                        pos
+                    }
+                }
             }
             Expression::Unary(expr) => {
                 Position { line: expr.operator.position.line, cstart: expr.operator.position.cstart, cend: Expression::position(*expr.right).cend }

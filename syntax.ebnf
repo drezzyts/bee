@@ -8,7 +8,7 @@ var_declaration = "mut" "?"? IDENTIFIER ( "=" expression )? ";" ;
 
 statement = expression_statement | echo_statement | block_statement | 
   if_statement | for_statement | while_statement | return_statement ;
-  
+
 echo_statement = "echo" expression ";" ;
 expression_statement = expression ";" ;
 block_statement = "{" declaration* "}" ;

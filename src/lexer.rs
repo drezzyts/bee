@@ -290,8 +290,8 @@ impl Lexer {
         while self.peek() != '"' && !self.is_eof() {
             if self.peek() == '\n' {
                 self.line += 1;
-                self.cstart = 0;
-                self.cend = 0;
+                self.cstart = 1;
+                self.cend = 1;
             }
             self.next();
         }
@@ -304,7 +304,9 @@ impl Lexer {
 
         let string = &self.source[self.start + 1..self.current - 1];
         let value = TokenLiteralValue::String(string.to_string());
+        
         self.push_token(TokenKind::String, Some(value));
+
         Ok(())
     }
 

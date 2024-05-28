@@ -44,8 +44,8 @@ impl BeeError {
         let line = lines[position.line-1];
 
         let mut pointer = String::new();
-        pointer += " ".repeat(position.cstart).as_str();
-        pointer += "^";
+        pointer += " ".repeat(position.cstart-5).as_str();
+        pointer += "^".repeat(5).as_str();
 
         format!("-->\t{}\n    \t{}", line, pointer)
     }

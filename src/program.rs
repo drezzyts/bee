@@ -26,7 +26,7 @@ impl Program {
 
     fn run(&mut self, source: &String) -> Result<(), BeeError> {
         self.interpreter.type_env = self.type_env.clone();
-        
+
         let mut lexer = Lexer::new(source);
         
         match lexer.read_tokens() {
@@ -38,12 +38,10 @@ impl Program {
                     Program::print_tokens(tokens.clone());
                 }
 
-                let type_checker = TypeChecker::new();
+                let type_checker = TypeChecker::new(source.clone());
                 
                 for stmt in program.clone() {
-                    if let Err(message) = type_checker.exec(&stmt, &mut self.type_env) {
-                        return Err(BeeError::report(&stmt.position(), message.as_str(), "type-checker", source.clone()));
-                    };
+                    type_checker.exec(&stmt, &mut self.type_env)?;
                 }
 
                 let result = self.interpreter.interpret(program, source.clone())?;
