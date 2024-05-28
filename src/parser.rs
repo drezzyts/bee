@@ -1,5 +1,5 @@
 use crate::{
-    error::BeeError, expressions::{*}, statements::{*}, token::{Token, TokenKind}
+    error::BeeError, expressions::{self, *}, statements::*, token::{Token, TokenKind}
 };
 
 pub struct Parser {
@@ -387,7 +387,7 @@ impl Parser {
     }
 
     fn call(&mut self) -> Result<Expression, String> {
-        let mut expr = self.primary()?;
+        let mut expr = self.cast()?;
 
         loop {
             if self.is_curr(TokenKind::LeftParen) {
@@ -431,6 +431,24 @@ impl Parser {
         Ok(Expression::Call(call))
     }
 
+    fn cast(&mut self) -> Result<Expression, String> {
+        if self.peek().kind == TokenKind::Identifier {
+            let typing = self.eat(TokenKind::Identifier)?;
+
+            if self.peek().kind == TokenKind::As {
+                self.eat(TokenKind::As)?;
+                let casted = self.primary()?; 
+                let expression = CastExpression::new(typing, Box::new(casted));
+                return Ok(Expression::Cast(expression));
+            } else {
+                let expression = VariableExpression::new(typing);
+                return Ok(Expression::Variable(expression))
+            }
+        }
+
+        self.primary()
+    }
+
     fn primary(&mut self) -> Result<Expression, String> {
         match self.peek().kind {
             TokenKind::True => {
@@ -458,9 +476,7 @@ impl Parser {
                 Ok(Expression::Group(expression))
             }
             TokenKind::Identifier => {
-                let name: Token = self.eat(TokenKind::Identifier)?;
-                let expression = VariableExpression::new(name);
-                Ok(Expression::Variable(expression))
+                self.cast()
             }
             TokenKind::Eof => Err("unexpected end of input.".to_string()),
             _ => Err(format!(

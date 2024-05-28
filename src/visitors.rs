@@ -9,6 +9,7 @@ pub trait ExpressionVisitor<T> {
     fn visit_assignment_expr(&mut self, expr: &AssignmentExpression) -> T;
     fn visit_logical_expr(&mut self, expr: &LogicalExpression) -> T;
     fn visit_call_expr(&mut self, expr: &CallExpression) -> T;
+    fn visit_cast_expr(&mut self, expr: &CastExpression) -> T;
 }
 
 pub trait ExpressionVisitable<T> {

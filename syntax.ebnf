@@ -4,7 +4,7 @@ declaration = func_declaration | var_declaration | statement;
 func_declaration = "fun" function ;
 function = IDENTIFIER "(" parameters? ")" ;
 parameters = IDENTIFIER ( "," IDENTIFIER )* ;
-var_declaration = "mut" "?"? IDENTIFIER ( "=" expression )? ";" ; 
+var_declaration = "mut" "?"? IDENTIFIER ( "::" IDENTIFIER )? ( "=" expression )? ";" ; 
 
 statement = expression_statement | echo_statement | block_statement | 
   if_statement | for_statement | while_statement | return_statement ;
@@ -22,10 +22,12 @@ assignment = IDENTIFIER "=" assignment | or ;
 or = and ("||" expression)* ;
 and = equality ("&&" expression)* ;
 equality = comparison ( ( "!=" | "==") comparison )* ;
-comparsion = term ( (">" | ">=" | "<" | "<=") term)* ;
+comparison = term ( (">" | ">=" | "<" | "<=") term)* ;
 term = factor ( ("-" | "+") factor )* ;
 factor = unary ( ("/" | "*") unary )* ;
 unary = ( "-" | "!" ) unary | call ;
-call = primary ( "(" arguments? ")")* ;
-arguments = expression ( "," expression )* ;
+call = cast ;
+cast = primary ( "::" IDENTIFIER )* ;
 primary = NUMBER | STRING | "true" | "false" | "nil" | group | IDENTIFIER ;
+group = "(" expression ")" ;
+arguments = expression ( "," expression )* ;

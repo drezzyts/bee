@@ -241,6 +241,20 @@ impl ExpressionVisitor<Result<LiteralValue, BeeError>> for Interpreter {
             )),
         }
     }
+    
+    fn visit_cast_expr(&mut self, expr: &CastExpression) -> Result<LiteralValue, BeeError> {
+        let to_cast = self.evaluate(*expr.casted.clone())?;
+        let cast_type = expr.typing.lexeme.clone();
+
+        let res = match cast_type.as_str() {
+            "str" => to_cast.cast_str(),
+            "int" => to_cast.cast_int(),
+            "float" => to_cast.cast_float(),
+            _ => Ok(to_cast)
+        };
+
+        Ok(res.unwrap())
+    }
 }
 
 impl StatementVisitor<Result<(), BeeError>> for Interpreter {

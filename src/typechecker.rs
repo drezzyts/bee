@@ -4,7 +4,7 @@ use crate::{
     enviroment::TypeEnviroment,
     error::BeeError,
     expressions::{
-        AssignmentExpression, BinaryExpression, Expression, LiteralExpression, LiteralValue,
+        AssignmentExpression, BinaryExpression, CastExpression, Expression, LiteralExpression, LiteralValue, VariableExpression
     },
     statements::{BlockStatement, Statement, VariableStatement},
     token::TokenKind,
@@ -60,32 +60,25 @@ impl TypeChecker {
     pub fn exec(&self, stmt: &Statement, env: &mut TypeEnviroment) -> Result<Type, BeeError> {
         match stmt {
             Statement::Expression(v) => self.infer(&v.expression, env),
-            Statement::Variable(v) => self.var_stmt(&v, env),
-            Statement::Block(v) => self.block_stmt(&v, env),
+            Statement::Variable(v) => self.var_stmt(v, env),
+            Statement::Block(v) => self.block_stmt(v, env),
+            Statement::Echo(v) => self.infer(&v.expression, env),
             _ => unimplemented!(),
         }
     }
 
-    fn block_stmt(
-        &self,
-        stmt: &BlockStatement,
-        env: &mut TypeEnviroment,
-    ) -> Result<Type, BeeError> {
+    fn block_stmt(&self, stmt: &BlockStatement, env: &mut TypeEnviroment) -> Result<Type, BeeError> {
         let mut enviroment = TypeEnviroment::new();
         enviroment.enclosing = Some(Rc::new(RefCell::new(env.clone())));
 
-        for statement in stmt.statements.clone() {
-            self.exec(&statement, &mut enviroment)?;
+        for statement in &stmt.statements {
+            self.exec(statement, &mut enviroment)?;
         }
 
         Ok(Type::Untyped)
     }
 
-    fn var_stmt(
-        &self,
-        stmt: &VariableStatement,
-        env: &mut TypeEnviroment,
-    ) -> Result<Type, BeeError> {
+    fn var_stmt(&self, stmt: &VariableStatement, env: &mut TypeEnviroment) -> Result<Type, BeeError> {
         if let Some(token_t) = &stmt.typing {
             let expected_typing = match Type::to_type(&token_t.lexeme) {
                 Ok(t) => t,
@@ -107,7 +100,7 @@ impl TypeChecker {
                     return Ok(expected_typing);
                 }
                 Some(initializer) => {
-                    let inferred_typing = self.infer(&initializer, env)?;
+                    let inferred_typing = self.infer(initializer, env)?;
                     let typing = match self.expects(&inferred_typing, &expected_typing) {
                         Ok(v) => v,
                         Err(message) => {
@@ -129,7 +122,7 @@ impl TypeChecker {
         } else {
             match &stmt.initializer {
                 Some(initializer) => {
-                    let inferred_typing = self.infer(&initializer, env)?;
+                    let inferred_typing = self.infer(initializer, env)?;
                     env.define(stmt.name.lexeme.clone(), stmt.constant, inferred_typing);
                     return Ok(inferred_typing);
                 }
@@ -149,24 +142,73 @@ impl TypeChecker {
 
     pub fn infer(&self, expr: &Expression, env: &mut TypeEnviroment) -> Result<Type, BeeError> {
         match expr {
-            Expression::Binary(expr) => self.binary(&expr, env),
+            Expression::Binary(expr) => self.binary(expr, env),
             Expression::Literal(expr) => Ok(self.literal(&expr)),
-            Expression::Assignment(expr) => self.assignment(&expr, env),
+            Expression::Assignment(expr) => self.assignment(expr, env),
+            Expression::Cast(expr) => self.cast(expr, env),
+            Expression::Variable(expr) => self.variable(expr, env),
+            Expression::Group(expr) => self.infer(&expr.expr, env),
             _ => unimplemented!(),
         }
     }
 
-    fn assignment(
-        &self,
-        expr: &AssignmentExpression,
-        env: &mut TypeEnviroment,
-    ) -> Result<Type, BeeError> {
+    fn variable(&self, expr: &VariableExpression, env: &mut TypeEnviroment) -> Result<Type, BeeError> {
+        match env.lookup(expr.name.lexeme.clone()) {
+            Ok(typing) => Ok(typing),
+            Err(message) => {
+                let error = BeeError::report(
+                    &expr.name.clone().position,
+                    message.as_str(),
+                    "type-checker",
+                    self.source.clone(),
+                );
+
+                Err(error)
+            }
+        }
+    }
+
+    fn cast(&self, expr: &CastExpression, env: &mut TypeEnviroment) -> Result<Type, BeeError> {
+        let typing = match Type::to_type(&expr.typing.lexeme) {
+            Ok(typing) => typing,
+            Err(message) => {
+                let error = BeeError::report(
+                    &expr.typing.clone().position,
+                    message.as_str(),
+                    "type-checker",
+                    self.source.clone(),
+                );
+
+                return Err(error);
+            }
+        };
+        
+        let value = self.infer(&expr.casted, env)?;
+        let allowed_casts = self.get_type_cast_allowed_types(value);
+
+        if typing.equals(&value) {
+            return Ok(value)
+        }
+
+        if !allowed_casts.contains(&typing) {
+            let error = BeeError::report(
+                &Expression::position(*expr.casted.clone()),
+                format!("the cast operation of {} to {} is not allowed",value.to_string(), typing.to_string()).as_str(),
+                "type-checker",
+                self.source.clone(),
+            );
+
+            return Err(error);
+        }
+
+        Ok(typing)
+    }
+
+    fn assignment(&self, expr: &AssignmentExpression, env: &mut TypeEnviroment) -> Result<Type, BeeError> {
         let expected_typing = match env.lookup(expr.name.lexeme.clone()) {
             Ok(v) => v,
             Err(message) => {
                 let pos = Expression::position(*expr.value.clone());
-                
-                
 
                 let error = BeeError::report(
                     &pos,
@@ -261,6 +303,18 @@ impl TypeChecker {
         }
     }
 
+    fn get_type_cast_allowed_types(&self, cast: Type) -> Vec<Type> {
+        let allowed = match cast {
+            Type::Str => vec![],
+            Type::Int => vec![Type::Str, Type::Float],
+            Type::Float => vec![Type::Int, Type::Str],
+            Type::Char => vec![Type::Str],
+            _ => vec![]
+        };
+
+        allowed
+    }
+
     fn validate_binary_operation_type(
         &self,
         ctype: Type,
@@ -290,6 +344,7 @@ impl TypeChecker {
         }
     }
 }
+
 mod tests {
     use crate::{
         enviroment::TypeEnviroment,
@@ -319,7 +374,7 @@ mod tests {
         let tc = TypeChecker::new(source.clone());
         let mut lexer = Lexer::new(&source);
         let mut parser = Parser::new(lexer.read_tokens().unwrap(), source.clone());
-        let program = parser.parse().unwrap();
+        let mut program = parser.parse().unwrap();
         let mut env = TypeEnviroment::new();
 
         fn test_expression(
@@ -329,19 +384,19 @@ mod tests {
             env: &mut TypeEnviroment,
         ) {
             if let Statement::Expression(stmt) = stmt {
-                let binary = stmt.expression.clone();
-                assert_eq!(tc.infer(&binary, env).unwrap(), expected_type);
+                let binary = &stmt.expression;
+                assert_eq!(tc.infer(binary, env).unwrap(), expected_type);
             }
         }
 
-        test_expression(&tc, &program.get(0).unwrap(), Type::Int, &mut env);
-        test_expression(&tc, &program.get(1).unwrap(), Type::Float, &mut env);
-        test_expression(&tc, &program.get(2).unwrap(), Type::Str, &mut env);
-        test_expression(&tc, &program.get(3).unwrap(), Type::Int, &mut env);
-        test_expression(&tc, &program.get(4).unwrap(), Type::Float, &mut env);
-        test_expression(&tc, &program.get(5).unwrap(), Type::Int, &mut env);
-        test_expression(&tc, &program.get(6).unwrap(), Type::Float, &mut env);
-        test_expression(&tc, &program.get(7).unwrap(), Type::Int, &mut env);
-        test_expression(&tc, &program.get(8).unwrap(), Type::Float, &mut env);
+        test_expression(&tc, &program.get_mut(0).unwrap(), Type::Int, &mut env);
+        test_expression(&tc, &program.get_mut(1).unwrap(), Type::Float, &mut env);
+        test_expression(&tc, &program.get_mut(2).unwrap(), Type::Str, &mut env);
+        test_expression(&tc, &program.get_mut(3).unwrap(), Type::Int, &mut env);
+        test_expression(&tc, &program.get_mut(4).unwrap(), Type::Float, &mut env);
+        test_expression(&tc, &program.get_mut(5).unwrap(), Type::Int, &mut env);
+        test_expression(&tc, &program.get_mut(6).unwrap(), Type::Float, &mut env);
+        test_expression(&tc, &program.get_mut(7).unwrap(), Type::Int, &mut env);
+        test_expression(&tc, &program.get_mut(8).unwrap(), Type::Float, &mut env);
     }
 }

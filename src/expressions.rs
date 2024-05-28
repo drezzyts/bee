@@ -2,7 +2,7 @@ use core::fmt;
 use std::{fmt::Debug, rc::Rc};
 
 use crate::{
-    position::Position, token::{Token, TokenKind}, visitors::{ExpressionVisitable, ExpressionVisitor}
+    error::BeeError, position::Position, token::{Token, TokenKind}, visitors::{ExpressionVisitable, ExpressionVisitor}
 };
 
 #[derive(Debug, Clone)]
@@ -15,6 +15,7 @@ pub enum Expression {
     Assignment(AssignmentExpression),
     Logical(LogicalExpression),
     Call(CallExpression),
+    Cast(CastExpression)
 }
 
 
@@ -59,6 +60,9 @@ impl Expression {
             Expression::Call(expr) => {
                 Expression::position(*expr.callee.clone())
             }
+            Expression::Cast(expr) => {
+                expr.typing.position.clone()
+            }
         }
     }
 
@@ -72,6 +76,8 @@ impl Expression {
             (Expression::Variable(_), Expression::Variable(_)) => true,
             (Expression::Assignment(_), Expression::Assignment(_)) => true,
             (Expression::Logical(_), Expression::Logical(_)) => true,
+            (Expression::Call(_), Expression::Call(_)) => true,
+            (Expression::Cast(_), Expression::Cast(_)) => true,
             _ => false
         }
     }
@@ -86,6 +92,7 @@ impl Expression {
             Expression::Assignment(_) => "Assignment",
             Expression::Logical(_) => "Logical",
             Expression::Call(_) => "Call",
+            Expression::Cast(_) => "Cast"
         }
     }
 }
@@ -99,7 +106,8 @@ impl<T> ExpressionVisitable<T> for Expression {
             Expression::Variable(expr) => visitor.visit_var_expr(expr),
             Expression::Assignment(expr) => visitor.visit_assignment_expr(expr),
             Expression::Logical(expr) => visitor.visit_logical_expr(expr),
-            Expression::Call(expr) => visitor.visit_call_expr(expr)
+            Expression::Call(expr) => visitor.visit_call_expr(expr),
+            Expression::Cast(expr) => visitor.visit_cast_expr(expr),
         }
     }
 }
@@ -166,6 +174,30 @@ impl PartialEq for LiteralValue {
 }
 
 impl LiteralValue {
+    pub fn cast_str(&self) -> Result<LiteralValue, String> {
+        match self {
+            LiteralValue::Float(v) => Ok(LiteralValue::String(v.to_string())),
+            LiteralValue::Integer(v) => Ok(LiteralValue::String(v.to_string())),
+            LiteralValue::Char(v) => Ok(LiteralValue::String(v.to_string())),
+            LiteralValue::String(_) => Ok(self.clone()),
+            _ => Err(format!("cannot cast this type to 'str'"))
+        }
+    }
+
+    pub fn cast_int(&self) -> Result<LiteralValue, String> {
+        match self {
+            LiteralValue::Float(v) => Ok(LiteralValue::Integer(v.clone() as i64)),
+            _ => Err(format!("cannot cast this type to 'int'"))
+        }
+    }
+
+    pub fn cast_float(&self) -> Result<LiteralValue, String> {
+        match self {
+            LiteralValue::Integer(v) => Ok(LiteralValue::Float(v.clone() as f64)),
+            _ => Err(format!("cannot cast this type to 'float'"))
+        }
+    }
+
     pub fn operate(&self, operator: TokenKind, other: &LiteralValue) -> LiteralValue {
         match operator {
             TokenKind::Plus => self.sum(other),
@@ -434,5 +466,17 @@ impl CallExpression {
         args: Vec<Box<Expression>>
     ) -> Self {
         Self { callee, paren, args }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct CastExpression {
+    pub typing: Token,
+    pub casted: Box<Expression>,
+}
+
+impl CastExpression {
+    pub fn new(typing: Token, casted: Box<Expression>) -> Self {
+        Self { typing, casted }
     }
 }
