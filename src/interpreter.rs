@@ -1,7 +1,7 @@
-use std::{cell::{Ref, RefCell}, rc::Rc};
+use std::{cell::RefCell, rc::Rc};
 
 use crate::{
-    enviroment::{self, Enviroment}, error::BeeError, expressions::*, token::TokenKind, visitors::{ExpressionVisitable, ExpressionVisitor, StatementVisitable, StatementVisitor}
+    enviroment::{Enviroment, TypeEnviroment}, error::BeeError, expressions::*, token::TokenKind, typechecker::{Type, TypeChecker}, visitors::{ExpressionVisitable, ExpressionVisitor, StatementVisitable, StatementVisitor}
 };
 
 use crate::statements::*;
@@ -10,55 +10,80 @@ use crate::statements::*;
 pub struct Interpreter {
     pub globals: Rc<RefCell<Enviroment>>,
     pub enviroment: Rc<RefCell<Enviroment>>,
-    pub source: String
+    pub source: String,
+    pub type_env: TypeEnviroment
 }
 
 impl Interpreter {
-    pub fn new() -> Self {
+    pub fn new(type_env: TypeEnviroment) -> Self {
         let print = LiteralValue::Callable {
-            arity: 1, 
-            name: "print".to_string(), 
+            arity: 1,
+            name: "print".to_string(),
             fun: Rc::new(|args: Vec<LiteralValue>| {
                 println!("{}", args[0]);
                 LiteralValue::Nil
-            }) 
+            }),
+        };
+
+        let type_f = LiteralValue::Callable {
+            arity: 1,
+            name: "type".to_string(),
+            fun: Rc::new(|args| {
+                let value = args[0].clone();
+
+                let typing = match value {
+                    LiteralValue::String(_) => "str",
+                    LiteralValue::Char(_) => "char",
+                    LiteralValue::Integer(_) => "int",
+                    LiteralValue::Float(_) => "float",
+                    LiteralValue::True | LiteralValue::False => "bool",
+                    LiteralValue::Callable { name: _, arity: _, fun: _ } => "function",
+                    LiteralValue::Nil => "nil",
+                    _ => "untyped" 
+                };
+
+                LiteralValue::String(typing.to_string())
+            }),
         };
 
         let mut env = Enviroment::new();
         env.define("print".to_string(), true, print).unwrap();
-        
+        env.define("type".to_string(), true, type_f).unwrap();
+
         Self {
+            type_env,
             enviroment: Rc::new(RefCell::new(env)),
             globals: Rc::new(RefCell::new(Enviroment::new())),
-            source: "".to_string()
+            source: "".to_string(),
         }
     }
 
-    pub fn from_closure(env: Rc<RefCell<Enviroment>>, source: String) -> Self {
+    pub fn from_closure(env: Rc<RefCell<Enviroment>>, source: String, type_env: TypeEnviroment) -> Self {
         let enviroment = Rc::new(RefCell::new(Enviroment::new()));
         enviroment.borrow_mut().enclosing = Some(env.clone());
-        
+
         Self {
             enviroment: enviroment,
             globals: Rc::new(RefCell::new(Enviroment::new())),
-            source
+            source,
+            type_env
         }
     }
 
     pub fn interpret(&mut self, program: Vec<Statement>, source: String) -> Result<(), BeeError> {
         self.source = source.clone();
-        
+
         for stmt in program {
             self.execute(stmt)?;
         }
-        
+
         Ok(())
     }
-    
+
     fn evaluate(&mut self, expression: Expression) -> Result<LiteralValue, BeeError> {
         expression.accept(self as &mut dyn ExpressionVisitor<Result<LiteralValue, BeeError>>)
     }
-    
+
     fn execute(&mut self, statement: Statement) -> Result<(), BeeError> {
         statement.accept(self as &mut dyn StatementVisitor<Result<(), BeeError>>)
     }
@@ -128,26 +153,33 @@ impl ExpressionVisitor<Result<LiteralValue, BeeError>> for Interpreter {
             Err(message) => {
                 let expression = Expression::Variable(expr.clone());
                 let error = BeeError::report(
-                    &Expression::position(expression), 
-                    message.as_str(), 
-                    "interpreter", 
-                    self.source.clone()
+                    &Expression::position(expression),
+                    message.as_str(),
+                    "interpreter",
+                    self.source.clone(),
                 );
                 Err(error)
-            },
-            Ok(value) => Ok(value)
+            }
+            Ok(value) => Ok(value),
         }
     }
 
-    fn visit_assignment_expr(&mut self, expr: &AssignmentExpression) -> Result<LiteralValue, BeeError> {
+    fn visit_assignment_expr(
+        &mut self,
+        expr: &AssignmentExpression,
+    ) -> Result<LiteralValue, BeeError> {
         let value = self.evaluate(*expr.value.clone())?;
-        
-        if let Err(message) = self.enviroment.borrow_mut().assign(expr.name.lexeme.clone(), value.clone()) {
+
+        if let Err(message) = self
+            .enviroment
+            .borrow_mut()
+            .assign(expr.name.lexeme.clone(), value.clone())
+        {
             let error = BeeError::report(
                 &Expression::position(Expression::Assignment(expr.clone())),
                 &message,
                 "interpreter",
-                self.source.clone()
+                self.source.clone(),
             );
 
             return Err(error);
@@ -155,7 +187,7 @@ impl ExpressionVisitor<Result<LiteralValue, BeeError>> for Interpreter {
 
         Ok(value)
     }
-    
+
     fn visit_logical_expr(&mut self, expr: &LogicalExpression) -> Result<LiteralValue, BeeError> {
         let left = self.evaluate(*expr.left.clone())?;
         let right = self.evaluate(*expr.right.clone())?;
@@ -171,10 +203,10 @@ impl ExpressionVisitor<Result<LiteralValue, BeeError>> for Interpreter {
 
         match value {
             true => Ok(LiteralValue::True),
-            false => Ok(LiteralValue::False)
+            false => Ok(LiteralValue::False),
         }
     }
-    
+
     fn visit_call_expr(&mut self, expr: &CallExpression) -> Result<LiteralValue, BeeError> {
         let callee = self.evaluate(*expr.callee.clone())?;
         let mut arguments: Vec<LiteralValue> = vec![];
@@ -182,27 +214,31 @@ impl ExpressionVisitor<Result<LiteralValue, BeeError>> for Interpreter {
         for argument in expr.args.clone() {
             arguments.push(self.evaluate(*argument.clone())?);
         }
-        
+
         match callee {
             LiteralValue::Callable { arity, name, fun } => {
                 if arguments.len() < arity {
                     return Err(BeeError::report(
-                        &Expression::position(*expr.callee.clone()), 
-                        format!("{name} function expected {arity} arguments, but has founded only {}", arguments.len()).as_str(),
-                        "interpreter", 
-                        self.source.clone()
+                        &Expression::position(*expr.callee.clone()),
+                        format!(
+                            "{name} function expected {arity} arguments, but has founded only {}",
+                            arguments.len()
+                        )
+                        .as_str(),
+                        "interpreter",
+                        self.source.clone(),
                     ));
                 }
 
                 let result = (fun)(arguments);
                 Ok(result)
-            },
+            }
             _ => Err(BeeError::report(
-                &Expression::position(*expr.callee.clone()), 
+                &Expression::position(*expr.callee.clone()),
                 "called using an invalid callee.",
-                "interpreter", 
-                self.source.clone()
-            ))
+                "interpreter",
+                self.source.clone(),
+            )),
         }
     }
 }
@@ -225,7 +261,11 @@ impl StatementVisitor<Result<(), BeeError>> for Interpreter {
             LiteralValue::True => String::from("true"),
             LiteralValue::False => String::from("false"),
             LiteralValue::NaN => String::from("nan"),
-            LiteralValue::Callable { arity: _, name, fun: _ } => name.clone()
+            LiteralValue::Callable {
+                arity: _,
+                name,
+                fun: _,
+            } => name.clone(),
         };
 
         println!("{response}");
@@ -239,12 +279,16 @@ impl StatementVisitor<Result<(), BeeError>> for Interpreter {
             LiteralValue::Nil
         };
 
-        if let Err(message) = self.enviroment.borrow_mut().define(stmt.name.lexeme.clone(), stmt.constant, value) {
+        if let Err(message) =
+            self.enviroment
+                .borrow_mut()
+                .define(stmt.name.lexeme.clone(), stmt.constant, value)
+        {
             let error = BeeError::report(
                 &Statement::Variable(stmt.clone()).position(),
                 &message,
                 "interpreter",
-                self.source.clone()
+                self.source.clone(),
             );
 
             return Err(error);
@@ -252,7 +296,7 @@ impl StatementVisitor<Result<(), BeeError>> for Interpreter {
 
         Ok(())
     }
-    
+
     fn visit_block_stmt(&mut self, stmt: &BlockStatement) -> Result<(), BeeError> {
         let previous = self.enviroment.clone();
         let mut env = Enviroment::new();
@@ -265,13 +309,13 @@ impl StatementVisitor<Result<(), BeeError>> for Interpreter {
         }
 
         self.enviroment = previous;
-        
+
         Ok(())
     }
-    
+
     fn visit_if_stmt(&mut self, stmt: &IfStatement) -> Result<(), BeeError> {
         let result = self.evaluate(*stmt.condition.clone())?;
-        
+
         if self.is_truthy(result) {
             self.execute(*stmt.consequent.clone())?;
         } else {
@@ -282,7 +326,7 @@ impl StatementVisitor<Result<(), BeeError>> for Interpreter {
 
         Ok(())
     }
-    
+
     fn visit_while_stmt(&mut self, stmt: &WhileStatement) -> Result<(), BeeError> {
         loop {
             let condition = self.evaluate(*stmt.condition.clone())?;
@@ -296,57 +340,68 @@ impl StatementVisitor<Result<(), BeeError>> for Interpreter {
 
         Ok(())
     }
-    
+
     fn visit_fun_stmt(&mut self, stmt: &FunctionStatement) -> Result<(), BeeError> {
-        let params = stmt.params.clone(); 
+        let params = stmt.params.clone();
         let name = stmt.name.lexeme.clone();
         let source = self.source.clone();
         let body = stmt.body.clone();
         let env = self.enviroment.clone();
+        let type_env = self.type_env.clone();
 
         let fun = move |args: Vec<LiteralValue>| -> LiteralValue {
             let mut environment = Enviroment::new();
             environment.enclosing = Some(env.clone());
-    
+
             for (i, param) in params.iter().enumerate() {
                 if let Err(err) = environment.define(param.lexeme.clone(), true, args[i].clone()) {
                     panic!("{}", err);
                 }
             }
-    
-            let mut intp = Interpreter::from_closure(Rc::new(RefCell::new(environment)), source.clone());
-    
+
+            let mut intp =
+                Interpreter::from_closure(Rc::new(RefCell::new(environment)), source.clone(), type_env.clone());
+
             let err = match *body.clone() {
                 Statement::Block(block) => intp.visit_block_stmt(&block),
-                _ => unreachable!()
+                _ => unreachable!(),
             };
-    
+
             if let Err(err) = err {
                 if err.location == "return" {
                     match err.object {
                         None => return LiteralValue::Nil,
-                        Some(value) => return value
+                        Some(value) => return value,
                     };
                 }
-                
+
                 panic!("{}", err.message);
             }
-    
+
             LiteralValue::Nil
         };
-    
+
         let value = LiteralValue::Callable {
             arity: stmt.params.len(),
             name,
-            fun: Rc::new(fun)
+            fun: Rc::new(fun),
         };
-    
-        match self.enviroment.borrow_mut().define(stmt.name.lexeme.clone(), true, value) {
+
+        match self
+            .enviroment
+            .borrow_mut()
+            .define(stmt.name.lexeme.clone(), true, value)
+        {
             Ok(_) => Ok(()),
-            Err(err) => Err(BeeError::report(&stmt.name.position, &err, "interpreter", self.source.clone()))
+            Err(err) => Err(BeeError::report(
+                &stmt.name.position,
+                &err,
+                "interpreter",
+                self.source.clone(),
+            )),
         }
     }
-    
+
     fn visist_return_stmt(&mut self, stmt: &ReturnStatement) -> Result<(), BeeError> {
         let value = if let Some(value) = stmt.value.clone() {
             Some(self.evaluate(*value.clone())?)

@@ -1,5 +1,5 @@
 use crate::{
-    expressions::{self, Expression}, position::Position, token::Token, visitors::{self, StatementVisitable, StatementVisitor}
+    expressions::Expression, position::Position, token::Token, typechecker::Type, visitors::{StatementVisitable, StatementVisitor}
 };
 
 #[derive(Debug, Clone)]
@@ -77,12 +77,13 @@ impl EchoStatement {
 pub struct VariableStatement {
     pub name: Token,
     pub initializer: Option<Expression>,
-    pub constant: bool
+    pub constant: bool,
+    pub typing: Option<Token>, 
 }
 
 impl VariableStatement {
-    pub fn new(name: Token, initializer: Option<Expression>, constant: bool) -> Self {
-        Self { name, initializer, constant }
+    pub fn new(name: Token, initializer: Option<Expression>, constant: bool, typing: Option<Token>) -> Self {
+        Self { name, initializer, constant, typing }
     }
 }
 

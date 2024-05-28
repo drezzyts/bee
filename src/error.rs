@@ -1,5 +1,6 @@
-use crate::{expressions::LiteralValue, position::Position, token::Token};
+use crate::{expressions::LiteralValue, position::Position};
 
+#[derive(Debug)]
 pub struct BeeError {
     pub position: Position,
     pub message: String,

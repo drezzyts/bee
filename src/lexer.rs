@@ -1,7 +1,6 @@
 use crate::{
     error::BeeError,
     position::Position,
-    program::Program,
     token::{Token, TokenKind, TokenLiteralValue},
 };
 
@@ -250,14 +249,21 @@ impl Lexer {
                 if self.check_next('&') {
                     self.push_token(TokenKind::And, None);
                 } else {
-                    return Err(format!("unexpected token found while lexing: &"));
+                    return Err(format!("unexpected token found while lexing: '&'"));
                 }
             }
             '|' => {
                 if self.check_next('|') {
                     self.push_token(TokenKind::Or, None);
                 } else {
-                    return Err(format!("unexpected token found while lexing: |"));
+                    return Err(format!("unexpected token found while lexing: '|'"));
+                }
+            },
+            ':' => {
+                if self.check_next(':') {
+                    self.push_token(TokenKind::As, None);
+                } else {
+                    return Err(format!("unexpected token found while lexing: ':'"));
                 }
             }
             '"' => self.read_string()?,
@@ -274,7 +280,7 @@ impl Lexer {
             _ => {
                 let invalid_token = self.source[self.start..self.current].to_string().clone();
 
-                return Err(format!("unexpected token found while lexing: {:?}", invalid_token));
+                return Err(format!("unexpected token found while lexing: '{:?}'", invalid_token));
             }
         }
         Ok(())

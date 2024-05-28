@@ -17,6 +17,8 @@ impl Token {
 
   pub fn get_keyword(lexeme: &str) -> Option<TokenKind> {
     let keywords: HashMap<&str, TokenKind> = HashMap::from([
+      // Keywords
+
       ("class", TokenKind::Class),
       ("else", TokenKind::Else),
       ("false", TokenKind::False),
@@ -89,6 +91,7 @@ pub enum TokenKind {
     LessEqual,
     Or,
     And,
+    As,
 
     // Literals.
     Identifier,

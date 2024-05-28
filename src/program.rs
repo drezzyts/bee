@@ -3,43 +3,60 @@
 use std::io::{self, Read, Write};
 use std::fs::File;
 
-use crate::enviroment::{self, Enviroment};
+use crate::enviroment::{self, Enviroment, TypeEnviroment};
 use crate::error::BeeError;
 use crate::interpreter::{self, Interpreter};
 use crate::lexer::Lexer;
 use crate::parser::Parser;
 use crate::position::Position;
+use crate::token::Token;
+use crate::typechecker::{self, TypeChecker};
 
 pub struct Program {
     pub print_tokens: bool,
-    pub interpreter: Interpreter
+    pub interpreter: Interpreter,
+    pub type_env: TypeEnviroment,
 }
 
 impl Program {
     pub fn new() -> Self {
-        Self { print_tokens: false, interpreter: Interpreter::new() }
+        let type_env = TypeEnviroment::new();
+        Self { print_tokens: false, interpreter: Interpreter::new(type_env.clone()), type_env: type_env }
     }
 
     fn run(&mut self, source: &String) -> Result<(), BeeError> {
+        self.interpreter.type_env = self.type_env.clone();
+        
         let mut lexer = Lexer::new(source);
         
         match lexer.read_tokens() {
             Ok(tokens) => {
                 let mut parser = Parser::new(tokens.clone(), source.clone());
+                let program = parser.parse()?;
 
                 if self.print_tokens {
-                    for token in tokens.clone() {
-                        println!("{:?}", token);
-                    }
+                    Program::print_tokens(tokens.clone());
                 }
 
-                let program = parser.parse()?;
+                let type_checker = TypeChecker::new();
                 
+                for stmt in program.clone() {
+                    if let Err(message) = type_checker.exec(&stmt, &mut self.type_env) {
+                        return Err(BeeError::report(&stmt.position(), message.as_str(), "type-checker", source.clone()));
+                    };
+                }
+
                 let result = self.interpreter.interpret(program, source.clone())?;
 
                 Ok(())
             },
             Err(error) => Err(error)
+        }
+    }
+
+    fn print_tokens(tokens: Vec<Token>) -> () {
+        for token in tokens.clone() {
+            println!("{:?}", token);
         }
     }
 

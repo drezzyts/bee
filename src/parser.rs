@@ -1,5 +1,5 @@
 use crate::{
-    error::BeeError, expressions::{self, *}, position, statements::{self, *}, token::{Token, TokenKind}
+    error::BeeError, expressions::{*}, statements::{*}, token::{Token, TokenKind}
 };
 
 pub struct Parser {
@@ -109,6 +109,14 @@ impl Parser {
         };
 
         let name = self.eat(TokenKind::Identifier)?;
+        
+        let typing = if self.is_curr(TokenKind::As) {
+            self.eat(TokenKind::As)?;
+            Some(self.eat(TokenKind::Identifier)?)
+        } else {
+            None
+        };
+
         let initializer: Option<Expression> = if self.is_curr(TokenKind::Equal) {
             self.eat(TokenKind::Equal)?;
             Some(self.expression()?)
@@ -117,7 +125,7 @@ impl Parser {
         };
         self.eat(TokenKind::SemiColon)?;
 
-        let stmt = VariableStatement::new(name, initializer, constant);
+        let stmt = VariableStatement::new(name, initializer, constant, typing);
         Ok(Statement::Variable(stmt))
     }
 

@@ -13,6 +13,7 @@ mod interpreter;
 mod statements;
 mod enviroment;
 mod error;
+mod typechecker;
 
 fn main() {
     let args: Vec<String> = env::args().collect();

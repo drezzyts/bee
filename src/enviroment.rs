@@ -1,6 +1,6 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use crate::expressions::LiteralValue
+use crate::{expressions::LiteralValue, typechecker::Type}
 ;
 
 #[derive(Clone, Debug)]
@@ -91,4 +91,46 @@ impl Enviroment {
             false
         }
     }
+}
+
+#[derive(Clone, Debug)]
+pub struct TypeVariable {
+    pub name: String,
+    pub constant: bool,
+    pub value: Type,
+}
+
+impl TypeVariable {
+    pub fn new(name: String, constant: bool, value: Type) -> Self {
+        Self { name, constant, value }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct TypeEnviroment {
+    pub values: HashMap<String, TypeVariable>,
+    pub enclosing: Option<Rc<RefCell<TypeEnviroment>>>
+}
+
+impl TypeEnviroment {
+  pub fn new() -> Self {
+    Self { values: HashMap::new(), enclosing: None }
+  }
+
+  pub fn define(&mut self, name: String, constant: bool, value: Type) -> Type {
+    let variable = TypeVariable::new(name.clone(), constant, value);
+    self.values.insert(name, variable);
+    
+    value
+  }
+
+  pub fn lookup(&mut self, name: String) -> Result<Type, String> {
+    match self.values.contains_key(name.as_str()) {
+        true => {
+            let variable = self.values.get(name.as_str()).unwrap();
+            Ok(variable.value.clone())
+        }
+        false => Err(format!("referenced a value that is not defined.")),
+    }
+  }
 }

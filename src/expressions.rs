@@ -1,8 +1,8 @@
 use core::fmt;
-use std::{cell::RefCell, fmt::Debug, path::Display, rc::Rc};
+use std::{fmt::Debug, rc::Rc};
 
 use crate::{
-    position::{self, Position}, token::{Token, TokenKind}, visitors::{ExpressionVisitable, ExpressionVisitor}
+    position::Position, token::{Token, TokenKind}, visitors::{ExpressionVisitable, ExpressionVisitor}
 };
 
 #[derive(Debug, Clone)]

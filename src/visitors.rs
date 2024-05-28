@@ -1,4 +1,4 @@
-use crate::{expressions::*, interpreter::Interpreter, statements::*};
+use crate::{expressions::*, statements::*};
 
 pub trait ExpressionVisitor<T> {
     fn visit_binary_expr(&mut self, expr: &BinaryExpression) -> T;
