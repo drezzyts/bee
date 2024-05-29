@@ -180,6 +180,8 @@ impl LiteralValue {
             LiteralValue::Integer(v) => Ok(LiteralValue::String(v.to_string())),
             LiteralValue::Char(v) => Ok(LiteralValue::String(v.to_string())),
             LiteralValue::String(_) => Ok(self.clone()),
+            LiteralValue::True => Ok(LiteralValue::String("true".to_string())),
+            LiteralValue::False => Ok(LiteralValue::String("false".to_string())),
             _ => Err(format!("cannot cast this type to 'str'"))
         }
     }
@@ -187,6 +189,8 @@ impl LiteralValue {
     pub fn cast_int(&self) -> Result<LiteralValue, String> {
         match self {
             LiteralValue::Float(v) => Ok(LiteralValue::Integer(v.clone() as i64)),
+            LiteralValue::True => Ok(LiteralValue::Integer(1)),
+            LiteralValue::False => Ok(LiteralValue::Integer(0)),
             _ => Err(format!("cannot cast this type to 'int'"))
         }
     }
@@ -194,7 +198,23 @@ impl LiteralValue {
     pub fn cast_float(&self) -> Result<LiteralValue, String> {
         match self {
             LiteralValue::Integer(v) => Ok(LiteralValue::Float(v.clone() as f64)),
+            LiteralValue::True => Ok(LiteralValue::Float(1.0)),
+            LiteralValue::False => Ok(LiteralValue::Float(0.0)),
             _ => Err(format!("cannot cast this type to 'float'"))
+        }
+    }
+
+    pub fn cast_bool(&self) -> Result<LiteralValue, String> {
+        match self {
+            LiteralValue::Integer(v) => {
+                if v.clone() == 0 {
+                    Ok(LiteralValue::False)
+                } else {
+                    Ok(LiteralValue::True)
+                }
+            },
+            LiteralValue::True | LiteralValue::False=> Ok(self.clone()),
+            _ => Err(format!("cannot cast this type to 'bool'"))
         }
     }
 

@@ -2,8 +2,9 @@ program = declaration* EOF ;
 
 declaration = func_declaration | var_declaration | statement;
 func_declaration = "fun" function ;
-function = IDENTIFIER "(" parameters? ")" ;
-parameters = IDENTIFIER ( "," IDENTIFIER )* ;
+function = IDENTIFIER "(" parameters? ")" ( "::" IDENTIFIER )? ;
+parameters = param ( "," param )* ;
+param = IDENTIFIER "::" IDENTIFIER ;
 var_declaration = "mut" "?"? IDENTIFIER ( "::" IDENTIFIER )? ( "=" expression )? ";" ; 
 
 statement = expression_statement | echo_statement | block_statement | 

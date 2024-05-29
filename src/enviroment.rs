@@ -94,7 +94,7 @@ impl Enviroment {
 }
 
 
-#[derive(Clone, Debug)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub struct TypeVariable {
     pub name: String,
     pub constant: bool,
@@ -107,7 +107,7 @@ impl TypeVariable {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub struct TypeEnviroment {
     pub values: HashMap<String, TypeVariable>,
     pub enclosing: Option<Rc<RefCell<TypeEnviroment>>>
@@ -119,7 +119,7 @@ impl TypeEnviroment {
   }
 
   pub fn define(&mut self, name: String, constant: bool, value: Type) -> Type {
-    let variable = TypeVariable::new(name.clone(), constant, value);
+    let variable = TypeVariable::new(name.clone(), constant, value.clone());
     self.values.insert(name, variable);
     
     value

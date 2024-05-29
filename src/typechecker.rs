@@ -1,73 +1,264 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
     enviroment::TypeEnviroment,
     error::BeeError,
     expressions::{
-        AssignmentExpression, BinaryExpression, CastExpression, Expression, LiteralExpression, LiteralValue, VariableExpression
+        AssignmentExpression, BinaryExpression, CallExpression, CastExpression, Expression, LiteralExpression, LiteralValue, LogicalExpression, VariableExpression
     },
-    statements::{BlockStatement, Statement, VariableStatement},
+    statements::{BlockStatement, FunctionStatement, IfStatement, ReturnStatement, Statement, VariableStatement, WhileStatement},
     token::TokenKind,
 };
 
-#[derive(PartialEq, Eq, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, Debug, Clone)]
+pub struct FunctionParamType {
+    pub name: String, 
+    pub typing: Type 
+}
+
+#[derive(PartialEq, Eq, Debug, Clone)]
+pub struct FunctionType {
+    pub name: String,
+    pub params: Vec<FunctionParamType>,
+    pub typing: Box<Type>,
+    pub env: TypeEnviroment
+} 
+
+impl FunctionType {
+    pub fn new(params: Vec<FunctionParamType>, typing: Box<Type>, env: TypeEnviroment, name: String) -> Self {
+        Self { params, typing, env, name }
+    }
+
+    pub fn to_string(&self) -> String {
+        let mut content = String::new();
+        content += "Fun";
+        
+        if self.params.len() > 0 {
+            content += "<";
+        }
+
+        for param in self.params.clone() {
+            if content.len() > 4 {
+                content += ",";
+            }
+
+            content += param.typing.to_string().as_str();
+        }
+
+        
+        if self.params.len() > 0 {
+            content += ">";
+        }
+
+        content += " -> ";
+        content += self.typing.to_string().as_str();
+
+        content
+    }
+}
+
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub enum Type {
     Str,
     Int,
     Float,
     Char,
     Untyped,
+    Bool,
+    Function(FunctionType)
 }
 
 impl Type {
     pub fn to_string(&self) -> String {
-        let name = match self {
-            Type::Str => "str",
-            Type::Int => "int",
-            Type::Float => "float",
-            Type::Char => "char",
-            Type::Untyped => "untyped",
-        };
-
-        name.to_string()
+        match self {
+            Type::Str => "str".to_string(),
+            Type::Int => "int".to_string(),
+            Type::Float => "float".to_string(),
+            Type::Char => "char".to_string(),
+            Type::Untyped => "untyped".to_string(),
+            Type::Bool => "bool".to_string(),
+            Type::Function(f) => f.clone().to_string(),
+        }
     }
 
     pub fn equals(&self, other: &Type) -> bool {
         self.to_string() == other.to_string()
     }
-
-    pub fn to_type(identifier: &String) -> Result<Type, String> {
-        match identifier.as_str() {
-            "str" => Ok(Type::Str),
-            "int" => Ok(Type::Int),
-            "float" => Ok(Type::Float),
-            "char" => Ok(Type::Char),
-            "untyped" => Ok(Type::Untyped),
-            _ => Err(format!("this type '{identifier}' is not defined")),
-        }
-    }
 }
 
 pub struct TypeChecker {
     source: String,
+    types: HashMap<String, Type>
 }
 
 impl TypeChecker {
-    pub fn new(source: String) -> Self {
-        Self { source }
+    pub fn to_type(&self, identifier: &String) -> Result<Type, String> {
+        match self.types.get(identifier) {
+            Some(t) => Ok(t.clone()),
+            None => Err(format!("this type '{identifier}' is not defined")),
+        }
     }
 
-    pub fn exec(&self, stmt: &Statement, env: &mut TypeEnviroment) -> Result<Type, BeeError> {
+    pub fn new(source: String) -> Self {
+        let mut types = HashMap::new();
+        types.insert("str".to_string(), Type::Str);
+        types.insert("char".to_string(), Type::Char);
+        types.insert("int".to_string(), Type::Int);
+        types.insert("float".to_string(), Type::Float);
+        types.insert("bool".to_string(), Type::Bool);
+        types.insert("untyped".to_string(), Type::Untyped);
+        
+        Self { source, types }
+    }
+
+    pub fn exec(&mut self, stmt: &Statement, env: &mut TypeEnviroment) -> Result<Type, BeeError> {
         match stmt {
             Statement::Expression(v) => self.infer(&v.expression, env),
             Statement::Variable(v) => self.var_stmt(v, env),
             Statement::Block(v) => self.block_stmt(v, env),
             Statement::Echo(v) => self.infer(&v.expression, env),
+            Statement::If(v) => self.if_stmt(v, env),
+            Statement::While(v) => self.while_stmt(v, env),
+            Statement::Function(v) => self.function_stmt(v, env),
             _ => unimplemented!(),
         }
     }
 
-    fn block_stmt(&self, stmt: &BlockStatement, env: &mut TypeEnviroment) -> Result<Type, BeeError> {
+    fn function_stmt(&mut self, stmt: &FunctionStatement, env: &mut TypeEnviroment) -> Result<Type, BeeError> {
+        let mut fun_env = TypeEnviroment::new();
+        fun_env.enclosing = Some(Rc::new(RefCell::new(env.clone())));
+
+        let mut params: Vec<FunctionParamType> = vec![];
+
+        for (name, typing) in stmt.params.clone() {
+            let t = match self.to_type(&typing.lexeme) {
+                Ok(r) => r,
+                Err(message) => {
+                    return Err(BeeError::report(
+                        &typing.position,
+                        message.as_str(),
+                        "type-checker",
+                        self.source.clone()
+                    ))
+                }
+            };
+            
+            let param = FunctionParamType { 
+                name: name.lexeme.clone(),
+                typing: t
+            };
+
+            params.push(param.clone());
+            fun_env.define(param.name, true, param.typing);
+        };
+
+        let block = match *stmt.body.clone() {
+            Statement::Block(b) => b,
+            _ => unreachable!()
+        };
+
+        let mut enviroment = TypeEnviroment::new();
+        enviroment.enclosing = Some(Rc::new(RefCell::new(fun_env.clone())));
+        
+        let typing = match stmt.typing.clone() {
+            Some(t) => self.to_type(&t.lexeme),
+            None => self.to_type(&String::from("untyped"))
+        };
+
+        let func = match typing.clone() {
+            Ok(t) => FunctionType::new(params, Box::new(t), fun_env, stmt.name.lexeme.clone()),
+            Err(message) => {
+                return Err(BeeError::report(
+                    &stmt.typing.clone().unwrap().position,
+                    message.as_str(),
+                    "type-checker",
+                    self.source.clone()
+                ))
+            }
+        };
+
+        for statement in block.statements {
+            match *statement.clone() {
+                Statement::Return(r) => {
+                    let rtype = match r.value.clone() {
+                        None => Type::Untyped,
+                        Some(expr) => self.infer(&expr, &mut enviroment)?,
+                    };
+
+                    match self.expects(&rtype, &typing.clone().unwrap()) {
+                        Ok(_) => continue,
+                        Err(_) => {
+                            let error = BeeError::report(
+                                &r.keyword.position,
+                                format!("this function expects a return type of '{}', but received '{}'.", typing.unwrap().to_string(), rtype.to_string()).as_str(),
+                                "type-checker",
+                                self.source.clone()
+                            );
+
+                            return Err(error);
+                        }
+                    }
+                },
+                _ => {
+                    self.exec(&statement, &mut enviroment)?;
+                }
+            }
+        }
+
+        let t = Type::Function(func.clone());
+        self.types.insert(func.name.clone(), t.clone());
+        env.define(func.name, true, t);
+
+        Ok(Type::Untyped)
+    }
+
+    fn while_stmt(&mut self, stmt: &WhileStatement, env: &mut TypeEnviroment) -> Result<Type, BeeError> {
+        let condition = self.infer(&stmt.condition, env)?;
+        
+        if let Err(message) = self.expects(&condition, &Type::Bool) {
+            let error = BeeError::report(
+                &Expression::position(*stmt.condition.clone()),
+                message.as_str(),
+                "type-checker",
+                self.source.clone()
+            );
+
+            return Err(error);
+        }
+
+        self.exec(&stmt.body, env)?;
+
+        Ok(Type::Untyped)
+    }
+
+    fn if_stmt(&mut self, stmt: &IfStatement, env: &mut TypeEnviroment) -> Result<Type, BeeError> {
+        let condition = self.infer(&stmt.condition, env)?;
+
+        if let Err(message) = self.expects(&condition, &Type::Bool) {
+            let error = BeeError::report(
+                &Expression::position(*stmt.condition.clone()),
+                message.as_str(),
+                "type-checker",
+                self.source.clone()
+            );
+
+            return Err(error);
+        }
+
+        self.exec(&stmt.consequent.clone(), env)?;
+
+        if let Some(alternate) = stmt.alternate.clone() {
+            return self.exec(&alternate, env);
+        }
+
+        Ok(Type::Untyped)
+    }
+
+    fn block_stmt(
+        &mut self,
+        stmt: &BlockStatement,
+        env: &mut TypeEnviroment,
+    ) -> Result<Type, BeeError> {
         let mut enviroment = TypeEnviroment::new();
         enviroment.enclosing = Some(Rc::new(RefCell::new(env.clone())));
 
@@ -78,9 +269,13 @@ impl TypeChecker {
         Ok(Type::Untyped)
     }
 
-    fn var_stmt(&self, stmt: &VariableStatement, env: &mut TypeEnviroment) -> Result<Type, BeeError> {
+    fn var_stmt(
+        &self,
+        stmt: &VariableStatement,
+        env: &mut TypeEnviroment,
+    ) -> Result<Type, BeeError> {
         if let Some(token_t) = &stmt.typing {
-            let expected_typing = match Type::to_type(&token_t.lexeme) {
+            let expected_typing = match self.to_type(&token_t.lexeme) {
                 Ok(t) => t,
                 Err(message) => {
                     let error = BeeError::report(
@@ -96,7 +291,7 @@ impl TypeChecker {
 
             match &stmt.initializer {
                 None => {
-                    env.define(stmt.name.lexeme.clone(), stmt.constant, expected_typing);
+                    env.define(stmt.name.lexeme.clone(), stmt.constant, expected_typing.clone());
                     return Ok(expected_typing);
                 }
                 Some(initializer) => {
@@ -123,7 +318,7 @@ impl TypeChecker {
             match &stmt.initializer {
                 Some(initializer) => {
                     let inferred_typing = self.infer(initializer, env)?;
-                    env.define(stmt.name.lexeme.clone(), stmt.constant, inferred_typing);
+                    env.define(stmt.name.lexeme.clone(), stmt.constant, inferred_typing.clone());
                     return Ok(inferred_typing);
                 }
                 None => {
@@ -148,11 +343,123 @@ impl TypeChecker {
             Expression::Cast(expr) => self.cast(expr, env),
             Expression::Variable(expr) => self.variable(expr, env),
             Expression::Group(expr) => self.infer(&expr.expr, env),
+            Expression::Logical(expr) => self.logical(expr, env),
+            Expression::Call(expr) => match self.call(expr, env) {
+                Ok(name) => Ok(self.to_type(&name).unwrap()),
+                Err(err) => Err(err) 
+            },
             _ => unimplemented!(),
         }
     }
 
-    fn variable(&self, expr: &VariableExpression, env: &mut TypeEnviroment) -> Result<Type, BeeError> {
+    fn call(&self, expr: &CallExpression, env: &mut TypeEnviroment) -> Result<String, BeeError> {
+        let callee = match *expr.callee.clone() {
+            Expression::Variable(v) => v.name.lexeme.clone(),
+            Expression::Call(c) => self.call(&c, env)?,
+            _ => {
+                let error = BeeError::report(
+                    &Expression::position(*expr.callee.clone()),
+                    "called using a callee that is invalid",
+                    "type-checker",
+                    self.source.clone(),
+                );
+
+                return Err(error);
+            }
+        };
+
+        let typing = match env.lookup(callee.clone()) {
+            Err(_) => {
+                let error = BeeError::report(
+                    &Expression::position(*expr.callee.clone()),
+                    "called using a callee that is not defined",
+                    "type-checker",
+                    self.source.clone(),
+                );
+
+                return Err(error);
+            }
+            Ok(f) => f.clone()
+        };
+
+        let fun = match typing {
+            Type::Function(func) => func,
+            _ => {
+                let error = BeeError::report(
+                    &Expression::position(*expr.callee.clone()),
+                    "called using a callee that is not a function",
+                    "type-checker",
+                    self.source.clone(),
+                );
+
+                return Err(error);
+            }
+        };
+
+        if expr.args.len() > fun.params.len() {
+            let invalid_param = expr.args.get(fun.params.len()).unwrap();
+            let position = Expression::position(*invalid_param.clone());
+
+            let error = BeeError::report(
+                &position,
+                format!("this argument is not expectede in {} function", callee.clone()).as_str(),
+                "type-checker",
+                self.source.clone(),
+            );
+
+            return Err(error);
+        }
+
+        let mut i = 0;
+        for arg in expr.args.clone() {
+            let value = self.infer(&arg, env)?;
+            let expected = &fun.params.get(i).unwrap().typing;
+
+            if let Err(message) = self.expects(&value, &expected) {
+                let error = BeeError::report(
+                    &Expression::position(*arg.clone()),
+                    message.as_str(),
+                    "type-checker",
+                    self.source.clone(),
+                );
+    
+                return Err(error);
+            }
+
+            i += 1;
+        }
+
+        Ok(fun.typing.to_string().clone())
+    }
+
+    fn logical(
+        &self,
+        expr: &LogicalExpression,
+        env: &mut TypeEnviroment,
+    ) -> Result<Type, BeeError> {
+        let left = self.infer(&expr.left, env)?;
+        let right = self.infer(&expr.right, env)?;
+
+        match self.expects(&right, &left) {
+            Ok(_) => Ok(Type::Bool),
+            Err(message) => {
+                let error = BeeError::report(
+                    &Expression::position(*expr.right.clone()),
+                    message.as_str(),
+                    "type-checker",
+                    self.source.clone(),
+                );
+
+                return Err(error);
+            }
+        }
+    }
+
+    fn variable(
+        &self,
+        expr: &VariableExpression,
+        env: &mut TypeEnviroment,
+    ) -> Result<Type, BeeError> {
         match env.lookup(expr.name.lexeme.clone()) {
             Ok(typing) => Ok(typing),
             Err(message) => {
@@ -169,7 +476,7 @@ impl TypeChecker {
     }
 
     fn cast(&self, expr: &CastExpression, env: &mut TypeEnviroment) -> Result<Type, BeeError> {
-        let typing = match Type::to_type(&expr.typing.lexeme) {
+        let typing = match self.to_type(&expr.typing.lexeme) {
             Ok(typing) => typing,
             Err(message) => {
                 let error = BeeError::report(
@@ -182,18 +489,23 @@ impl TypeChecker {
                 return Err(error);
             }
         };
-        
+
         let value = self.infer(&expr.casted, env)?;
-        let allowed_casts = self.get_type_cast_allowed_types(value);
+        let allowed_casts = self.get_type_cast_allowed_types(value.clone());
 
         if typing.equals(&value) {
-            return Ok(value)
+            return Ok(value);
         }
 
         if !allowed_casts.contains(&typing) {
             let error = BeeError::report(
                 &Expression::position(*expr.casted.clone()),
-                format!("the cast operation of {} to {} is not allowed",value.to_string(), typing.to_string()).as_str(),
+                format!(
+                    "the cast operation of {} to {} is not allowed",
+                    value.to_string(),
+                    typing.to_string()
+                )
+                .as_str(),
                 "type-checker",
                 self.source.clone(),
             );
@@ -204,18 +516,18 @@ impl TypeChecker {
         Ok(typing)
     }
 
-    fn assignment(&self, expr: &AssignmentExpression, env: &mut TypeEnviroment) -> Result<Type, BeeError> {
+    fn assignment(
+        &self,
+        expr: &AssignmentExpression,
+        env: &mut TypeEnviroment,
+    ) -> Result<Type, BeeError> {
         let expected_typing = match env.lookup(expr.name.lexeme.clone()) {
             Ok(v) => v,
             Err(message) => {
                 let pos = Expression::position(*expr.value.clone());
 
-                let error = BeeError::report(
-                    &pos,
-                    message.as_str(),
-                    "type-checker",
-                    self.source.clone(),
-                );
+                let error =
+                    BeeError::report(&pos, message.as_str(), "type-checker", self.source.clone());
 
                 return Err(error);
             }
@@ -224,19 +536,15 @@ impl TypeChecker {
         let inferred_typing = self.infer(&expr.value, env)?;
 
         match self.expects(&inferred_typing, &expected_typing) {
-          Ok(v) => Ok(v),
-          Err(message) => {
-            let pos = Expression::position(*expr.value.clone());
-            
-            let error = BeeError::report(
-              &pos,
-              message.as_str(),
-              "type-checker",
-              self.source.clone(),
-            );
+            Ok(v) => Ok(v),
+            Err(message) => {
+                let pos = Expression::position(*expr.value.clone());
 
-            return Err(error);
-          }
+                let error =
+                    BeeError::report(&pos, message.as_str(), "type-checker", self.source.clone());
+
+                return Err(error);
+            }
         }
     }
 
@@ -247,39 +555,48 @@ impl TypeChecker {
         let operator = expr.operator.clone();
         let operator_allowed_types = self.get_operator_allowed_types(&operator.kind);
 
-        if let Err(message) = self.validate_binary_operation_type(left, &operator.kind, &operator_allowed_types) {
-          let error = BeeError::report(
-            &Expression::position(*expr.left.clone()),
-            message.as_str(),
-            "type-checker",
-            self.source.clone(),
-          );
-
-          return Err(error);
-        }
-        if let Err(message) = self.validate_binary_operation_type(right, &operator.kind, &operator_allowed_types) {
-          let error = BeeError::report(
-            &Expression::position(*expr.right.clone()),
-            message.as_str(),
-            "type-checker",
-            self.source.clone(),
-          );
-
-          return Err(error);
-        }
-
-        match self.expects(&right, &left) {
-          Ok(v) => Ok(v),
-          Err(message) => {
+        if let Err(message) =
+            self.validate_binary_operation_type(left.clone(), &operator.kind, &operator_allowed_types)
+        {
             let error = BeeError::report(
-              &Expression::position(*expr.right.clone()),
-              message.as_str(),
-              "type-checker",
-              self.source.clone(),
+                &Expression::position(*expr.left.clone()),
+                message.as_str(),
+                "type-checker",
+                self.source.clone(),
             );
 
             return Err(error);
-          }
+        }
+        if let Err(message) =
+            self.validate_binary_operation_type(right.clone(), &operator.kind, &operator_allowed_types)
+        {
+            let error = BeeError::report(
+                &Expression::position(*expr.right.clone()),
+                message.as_str(),
+                "type-checker",
+                self.source.clone(),
+            );
+
+            return Err(error);
+        }
+
+        match self.expects(&right, &left) {
+            Ok(v) => {
+                match operator.lexeme.as_str() {
+                    ">" | ">=" | "<" | "<=" | "==" | "!=" => Ok(Type::Bool),
+                    _ => Ok(v)
+                }
+            },
+            Err(message) => {
+                let error = BeeError::report(
+                    &Expression::position(*expr.right.clone()),
+                    message.as_str(),
+                    "type-checker",
+                    self.source.clone(),
+                );
+
+                return Err(error);
+            }
         }
     }
 
@@ -289,7 +606,8 @@ impl TypeChecker {
             LiteralValue::Integer(_) => Type::Int,
             LiteralValue::Char(_) => Type::Char,
             LiteralValue::String(_) => Type::Str,
-            _ => unimplemented!(),
+            LiteralValue::True | LiteralValue::False => Type::Bool,
+            _ => Type::Untyped,
         }
     }
 
@@ -299,6 +617,9 @@ impl TypeChecker {
             TokenKind::Minus => vec![Type::Int, Type::Float],
             TokenKind::Star => vec![Type::Int, Type::Float],
             TokenKind::Slash => vec![Type::Int, Type::Float],
+            TokenKind::Greater | TokenKind::GreaterEqual | 
+            TokenKind::Less | TokenKind::LessEqual => vec![Type::Int, Type::Float],
+            TokenKind::EqualEqual | TokenKind::BangEqual => vec![Type::Int, Type::Float, Type::Char, Type::Bool, Type::Untyped, Type::Str], 
             _ => unimplemented!(),
         }
     }
@@ -306,10 +627,11 @@ impl TypeChecker {
     fn get_type_cast_allowed_types(&self, cast: Type) -> Vec<Type> {
         let allowed = match cast {
             Type::Str => vec![],
-            Type::Int => vec![Type::Str, Type::Float],
+            Type::Int => vec![Type::Str, Type::Float, Type::Bool],
             Type::Float => vec![Type::Int, Type::Str],
             Type::Char => vec![Type::Str],
-            _ => vec![]
+            Type::Bool => vec![Type::Int, Type::Float, Type::Str],
+            _ => vec![],
         };
 
         allowed
@@ -323,7 +645,7 @@ impl TypeChecker {
     ) -> Result<(), String> {
         if !types.contains(&ctype) {
             return Err(format!(
-                "the {:?} operation is not allowed for {} type.",
+                "the {:?} operation is not allowed for '{}' type.",
                 operator,
                 ctype.to_string()
             ));

@@ -42,9 +42,12 @@ impl BeeError {
     fn error_line(source: String, position: &Position) -> String {
         let lines: Vec<&str> = source.as_str().split('\n').collect();
         let line = lines[position.line-1];
-
         let mut pointer = String::new();
-        pointer += " ".repeat(position.cstart-5).as_str();
+        
+        if position.cstart > 5 {
+            pointer += " ".repeat(position.cstart-5).as_str();
+        }
+
         pointer += "^".repeat(5).as_str();
 
         format!("-->\t{}\n    \t{}", line, pointer)

@@ -38,7 +38,7 @@ impl Program {
                     Program::print_tokens(tokens.clone());
                 }
 
-                let type_checker = TypeChecker::new(source.clone());
+                let mut type_checker = TypeChecker::new(source.clone());
                 
                 for stmt in program.clone() {
                     type_checker.exec(&stmt, &mut self.type_env)?;

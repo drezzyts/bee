@@ -190,21 +190,18 @@ impl ExpressionVisitor<Result<LiteralValue, BeeError>> for Interpreter {
 
     fn visit_logical_expr(&mut self, expr: &LogicalExpression) -> Result<LiteralValue, BeeError> {
         let left = self.evaluate(*expr.left.clone())?;
-        let right = self.evaluate(*expr.right.clone())?;
 
-        let value = match expr.operator.kind {
-            TokenKind::Or => self.is_truthy(left) || self.is_truthy(right),
-            TokenKind::And => self.is_truthy(left) && self.is_truthy(right),
-            _ => {
-                dbg!(expr.operator.kind.clone());
-                false
+        if expr.operator.kind == TokenKind::Or {
+            if self.is_truthy(left.clone()) {
+                return Ok(left);
             }
-        };
-
-        match value {
-            true => Ok(LiteralValue::True),
-            false => Ok(LiteralValue::False),
+        } else {
+            if !self.is_truthy(left.clone()) {
+                return Ok(left)
+            }
         }
+
+        return self.evaluate(*expr.right.clone());
     }
 
     fn visit_call_expr(&mut self, expr: &CallExpression) -> Result<LiteralValue, BeeError> {
@@ -367,7 +364,7 @@ impl StatementVisitor<Result<(), BeeError>> for Interpreter {
             let mut environment = Enviroment::new();
             environment.enclosing = Some(env.clone());
 
-            for (i, param) in params.iter().enumerate() {
+            for (i, (param, _)) in params.iter().enumerate() {
                 if let Err(err) = environment.define(param.lexeme.clone(), true, args[i].clone()) {
                     panic!("{}", err);
                 }

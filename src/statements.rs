@@ -136,13 +136,14 @@ impl WhileStatement {
 #[derive(Debug, Clone)]
 pub struct FunctionStatement {
     pub name: Token,
-    pub params: Vec<Token>,
-    pub body: Box<Statement>
+    pub params: Vec<(Token, Token)>,
+    pub body: Box<Statement>,
+    pub typing: Option<Token>,
 }
 
 impl FunctionStatement {
-    pub fn new(name: Token, params: Vec<Token>, body: Box<Statement>) -> Self {
-        Self { name, params, body }
+    pub fn new(name: Token, params: Vec<(Token, Token)>, body: Box<Statement>, typing: Option<Token>) -> Self {
+        Self { name, params, body, typing }
     }
 }
 

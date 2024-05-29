@@ -72,7 +72,7 @@ impl Parser {
         let name = self.eat(TokenKind::Identifier)?;
         self.eat(TokenKind::LeftParen)?;
 
-        let mut parameters: Vec<Token> = vec![];
+        let mut parameters: Vec<(Token, Token)> = vec![];
 
         if !self.is_curr(TokenKind::RightParen) {
             loop {
@@ -80,7 +80,11 @@ impl Parser {
                     return Err("function cannot have more than 255 parameters".to_string());
                 }
 
-                parameters.push(self.eat(TokenKind::Identifier)?);
+                let identifier = self.eat(TokenKind::Identifier)?;
+                self.eat(TokenKind::As)?;
+                let typing = self.eat(TokenKind::Identifier)?;
+
+                parameters.push((identifier, typing));
 
                 if self.peek().kind != TokenKind::Comma {
                     break;
@@ -92,8 +96,15 @@ impl Parser {
 
         self.eat(TokenKind::RightParen)?;
         
+        let mut typing: Option<Token> = None;
+
+        if self.is_curr(TokenKind::As) {
+            self.eat(TokenKind::As)?;
+            typing = Some(self.eat(TokenKind::Identifier)?);
+        }
+        
         let body = Box::new(self.block_stmt()?);
-        let stmt = FunctionStatement::new(name, parameters, body);
+        let stmt = FunctionStatement::new(name, parameters, body, typing);
         Ok(Statement::Function(stmt))
     }
 
