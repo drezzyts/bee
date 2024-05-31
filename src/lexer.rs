@@ -23,7 +23,7 @@ mod tests {
     fn lex_punctuators() {
         let source = "{ } ( ) . , ;";
         let mut lexer = Lexer::new(&source.to_string());
-        lexer.read_tokens();
+        lexer.read_tokens().unwrap();
 
         assert_eq!(lexer.tokens.len(), 8);
         assert_eq!(lexer.tokens[0].kind, TokenKind::LeftBrace);
@@ -40,7 +40,7 @@ mod tests {
     fn lex_math_operators() {
         let source = "+ - / *";
         let mut lexer = Lexer::new(&source.to_string());
-        lexer.read_tokens();
+        lexer.read_tokens().unwrap();
 
         assert_eq!(lexer.tokens.len(), 5);
         assert_eq!(lexer.tokens[0].kind, TokenKind::Plus);
@@ -54,7 +54,7 @@ mod tests {
     fn lex_bool_operators() {
         let source = "> < >= <= != == = ! && ||";
         let mut lexer = Lexer::new(&source.to_string());
-        lexer.read_tokens();
+        lexer.read_tokens().unwrap();
 
         assert_eq!(lexer.tokens.len(), 11);
         assert_eq!(lexer.tokens[0].kind, TokenKind::Greater);
@@ -76,7 +76,7 @@ mod tests {
         "Hello,
               World!""#;
         let mut lexer = Lexer::new(&source.to_string());
-        lexer.read_tokens();
+        lexer.read_tokens().unwrap();
 
         assert_eq!(lexer.tokens.len(), 3);
         assert_eq!(lexer.tokens[0].kind, TokenKind::String);
@@ -89,7 +89,7 @@ mod tests {
         let source = r#"'a'
         '1'"#;
         let mut lexer = Lexer::new(&source.to_string());
-        lexer.read_tokens();
+        lexer.read_tokens().unwrap();
 
         assert_eq!(lexer.tokens.len(), 3);
         assert_eq!(lexer.tokens[0].kind, TokenKind::Char);
@@ -104,7 +104,7 @@ mod tests {
         num1
         "#;
         let mut lexer = Lexer::new(&source.to_string());
-        lexer.read_tokens();
+        lexer.read_tokens().unwrap();
 
         assert_eq!(lexer.tokens.len(), 4);
         assert_eq!(lexer.tokens[0].kind, TokenKind::Identifier);
@@ -119,7 +119,7 @@ mod tests {
         5.5
         "#;
         let mut lexer = Lexer::new(&source.to_string());
-        lexer.read_tokens();
+        lexer.read_tokens().unwrap();
 
         assert_eq!(lexer.tokens.len(), 3);
         assert_eq!(lexer.tokens[0].kind, TokenKind::Integer);
@@ -130,12 +130,12 @@ mod tests {
     #[test]
     fn lex_keywords() {
         let source =
-            r#"class else false fun for if nil echo return super this true mut while"#;
+            r#"struct else false fun for if nil echo return this true const mut while"#;
         let mut lexer = Lexer::new(&source.to_string());
-        lexer.read_tokens();
+        lexer.read_tokens().unwrap();
 
         assert_eq!(lexer.tokens.len(), 15);
-        assert_eq!(lexer.tokens[0].kind, TokenKind::Class);
+        assert_eq!(lexer.tokens[0].kind, TokenKind::Struct);
         assert_eq!(lexer.tokens[1].kind, TokenKind::Else);
         assert_eq!(lexer.tokens[2].kind, TokenKind::False);
         assert_eq!(lexer.tokens[3].kind, TokenKind::Fun);
@@ -144,9 +144,9 @@ mod tests {
         assert_eq!(lexer.tokens[6].kind, TokenKind::Nil);
         assert_eq!(lexer.tokens[7].kind, TokenKind::Echo);
         assert_eq!(lexer.tokens[8].kind, TokenKind::Return);
-        assert_eq!(lexer.tokens[9].kind, TokenKind::Super);
-        assert_eq!(lexer.tokens[10].kind, TokenKind::This);
-        assert_eq!(lexer.tokens[11].kind, TokenKind::True);
+        assert_eq!(lexer.tokens[9].kind, TokenKind::This);
+        assert_eq!(lexer.tokens[10].kind, TokenKind::True);
+        assert_eq!(lexer.tokens[11].kind, TokenKind::Const);
         assert_eq!(lexer.tokens[12].kind, TokenKind::Mut);
         assert_eq!(lexer.tokens[13].kind, TokenKind::While);
         assert_eq!(lexer.tokens[14].kind, TokenKind::Eof);

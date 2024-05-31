@@ -247,10 +247,23 @@ impl ExpressionVisitor<Result<LiteralValue, BeeError>> for Interpreter {
             "str" => to_cast.cast_str(),
             "int" => to_cast.cast_int(),
             "float" => to_cast.cast_float(),
+            "bool" => to_cast.cast_bool(),
             _ => Ok(to_cast)
         };
 
         Ok(res.unwrap())
+    }
+    
+    fn visit_obj_expr(&mut self, expr: &ObjectExpression) -> Result<LiteralValue, BeeError> {
+        let mut values: Vec<LiteralValue> = vec![];
+
+        for expression in expr.values.clone() {
+            let value = self.evaluate(expression)?;
+            values.push(value);
+        }
+
+        let value = LiteralValue::Object(values);
+        Ok(value)
     }
 }
 
@@ -277,6 +290,15 @@ impl StatementVisitor<Result<(), BeeError>> for Interpreter {
                 name,
                 fun: _,
             } => name.clone(),
+            LiteralValue::Struct { name, properties } => name.clone() + "{ " + properties.join(", ").as_str() +" }",
+            LiteralValue::Object(values) => {
+                let val: Vec<String> = values.iter().map(|p| -> String {
+                    p.to_string()
+                }).collect();
+
+                let content = String::from("{") + val.join(", ").as_str() + "}";
+                content
+            },
         };
 
         println!("{response}");
@@ -413,7 +435,7 @@ impl StatementVisitor<Result<(), BeeError>> for Interpreter {
         }
     }
 
-    fn visist_return_stmt(&mut self, stmt: &ReturnStatement) -> Result<(), BeeError> {
+    fn visit_return_stmt(&mut self, stmt: &ReturnStatement) -> Result<(), BeeError> {
         let value = if let Some(value) = stmt.value.clone() {
             Some(self.evaluate(*value.clone())?)
         } else {
@@ -421,5 +443,20 @@ impl StatementVisitor<Result<(), BeeError>> for Interpreter {
         };
 
         Err(BeeError::return_v("return", &stmt.keyword.position, value))
+    }
+    
+    fn visit_struct_stmt(&mut self, stmt: &StructStatement) -> Result<(), BeeError> {
+        let name = stmt.name.lexeme.clone();
+        let properties: Vec<String> = stmt.properties.iter().map(|p| -> String {
+            p.name.lexeme.clone()
+        }).collect();
+
+        let v = LiteralValue::Struct {
+            name: name.clone(),
+            properties
+        };
+
+        self.enviroment.borrow_mut().define(name, true, v);
+        Ok(())
     }
 }

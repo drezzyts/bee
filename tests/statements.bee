@@ -6,7 +6,7 @@ echo 10 * 5;
 10 * 5;
 
 // Variables;
-mut? name = "drezzy"; // constant
+const name = "drezzy";
 mut age;
 age = 18;
 

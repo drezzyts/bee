@@ -10,6 +10,7 @@ pub trait ExpressionVisitor<T> {
     fn visit_logical_expr(&mut self, expr: &LogicalExpression) -> T;
     fn visit_call_expr(&mut self, expr: &CallExpression) -> T;
     fn visit_cast_expr(&mut self, expr: &CastExpression) -> T;
+    fn visit_obj_expr(&mut self, expr: &ObjectExpression) -> T;
 }
 
 pub trait ExpressionVisitable<T> {
@@ -24,7 +25,8 @@ pub trait StatementVisitor<T> {
     fn visit_if_stmt(&mut self, stmt: &IfStatement) -> T;
     fn visit_while_stmt(&mut self, stmt: &WhileStatement) -> T;
     fn visit_fun_stmt(&mut self, stmt: &FunctionStatement) -> T;
-    fn visist_return_stmt(&mut self, stmt: &ReturnStatement) -> T;
+    fn visit_return_stmt(&mut self, stmt: &ReturnStatement) -> T;
+    fn visit_struct_stmt(&mut self, stmt: &StructStatement) -> T;
 }
 
 pub trait StatementVisitable<T> {

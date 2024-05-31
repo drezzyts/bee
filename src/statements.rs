@@ -12,6 +12,7 @@ pub enum Statement {
     While(WhileStatement),
     Function(FunctionStatement),
     Return(ReturnStatement),
+    Struct(StructStatement),
 }
 
 impl Statement {
@@ -31,6 +32,7 @@ impl Statement {
             Statement::If(_) => unreachable!(),
             Statement::While(_) => unreachable!(),
             Statement::Function(_) => unreachable!(),
+            Statement::Struct(_) => unreachable!(),
         }
     }
 }
@@ -46,7 +48,8 @@ impl<T> StatementVisitable<T> for Statement {
             Statement::If(stmt) => visitor.visit_if_stmt(stmt),
             Statement::While(stmt) => visitor.visit_while_stmt(stmt),
             Statement::Function(stmt) => visitor.visit_fun_stmt(stmt),
-            Statement::Return(stmt) => visitor.visist_return_stmt(stmt),
+            Statement::Return(stmt) => visitor.visit_return_stmt(stmt),
+            Statement::Struct(stmt) => visitor.visit_struct_stmt(stmt),
             _ => unimplemented!(),
         }
     }
@@ -156,5 +159,30 @@ pub struct ReturnStatement {
 impl ReturnStatement {
     pub fn new(keyword: Token, value: Option<Box<Expression>>) -> Self {
         Self { keyword, value }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct StructStatement {
+    pub name: Token,
+    pub properties: Vec<StructProperty>
+}
+
+#[derive(Debug, Clone)]
+pub struct StructProperty {
+    pub name: Token,
+    pub typing: Token,
+    pub constant: bool,
+}
+
+impl StructStatement {
+    pub fn new(name: Token, properties: Vec<StructProperty>) -> Self {
+        Self { name, properties }
+    }
+}
+
+impl StructProperty {
+    pub fn new(name: Token, typing: Token, constant: bool) -> Self {
+        Self { name, typing, constant }
     }
 }

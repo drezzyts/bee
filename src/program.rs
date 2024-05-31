@@ -16,16 +16,19 @@ pub struct Program {
     pub print_tokens: bool,
     pub interpreter: Interpreter,
     pub type_env: TypeEnviroment,
+    pub tc: TypeChecker,
 }
 
 impl Program {
     pub fn new() -> Self {
         let type_env = TypeEnviroment::new();
-        Self { print_tokens: false, interpreter: Interpreter::new(type_env.clone()), type_env: type_env }
+        let tc = TypeChecker::new(String::new());
+        Self { print_tokens: false, interpreter: Interpreter::new(type_env.clone()), type_env, tc }
     }
 
     fn run(&mut self, source: &String) -> Result<(), BeeError> {
         self.interpreter.type_env = self.type_env.clone();
+        self.tc.source = source.clone();
 
         let mut lexer = Lexer::new(source);
         
@@ -37,11 +40,9 @@ impl Program {
                 if self.print_tokens {
                     Program::print_tokens(tokens.clone());
                 }
-
-                let mut type_checker = TypeChecker::new(source.clone());
                 
                 for stmt in program.clone() {
-                    type_checker.exec(&stmt, &mut self.type_env)?;
+                    self.tc.exec(&stmt, &mut self.type_env)?;
                 }
 
                 let result = self.interpreter.interpret(program, source.clone())?;

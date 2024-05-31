@@ -52,18 +52,49 @@ impl Parser {
     }
 
     fn declaration(&mut self) -> Result<Statement, String> {
-        let result = if self.is_curr(TokenKind::Mut) {
-            self.var_declaration()
-        } else if self.is_curr(TokenKind::Fun) {
-            self.fun_declaration("function")
-        } else {
-            self.statement()
+        let result = match self.peek().kind {
+            TokenKind::Fun => self.fun_declaration("function"),
+            TokenKind::Mut | TokenKind::Const => self.var_declaration(),
+            TokenKind::Struct => self.struct_declaration(),
+            _ => self.statement()
         };
 
         match result {
             Ok(stmt) => Ok(stmt),
             Err(err) => Err(err),
         }
+    }
+
+    fn struct_declaration(&mut self) -> Result<Statement, String> {
+        self.eat(TokenKind::Struct)?;
+
+        let name = self.eat(TokenKind::Identifier)?;
+        self.eat(TokenKind::LeftBrace)?;
+
+        let mut properties: Vec<StructProperty> = vec![];
+
+        while self.peek().kind != TokenKind::RightBrace {
+            let constant = match self.peek().kind {
+                TokenKind::Mut => { self.eat(TokenKind::Mut)?; false },
+                _ => true, 
+            };
+
+            let name = self.eat(TokenKind::Identifier)?;
+            self.eat(TokenKind::As)?;
+            let typing = self.eat(TokenKind::Identifier)?;
+
+            let property = StructProperty::new(name, typing, constant);
+            properties.push(property);
+
+            if self.peek().kind != TokenKind::RightBrace {
+                self.eat(TokenKind::Comma)?;
+            }
+        }
+
+        self.eat(TokenKind::RightBrace)?;
+
+        let stmt = StructStatement::new(name, properties);
+        Ok(Statement::Struct(stmt))
     }
 
     fn fun_declaration(&mut self, _: &str) -> Result<Statement, String> {
@@ -110,13 +141,13 @@ impl Parser {
 
 
     fn var_declaration(&mut self) -> Result<Statement, String> {
-        self.eat(TokenKind::Mut)?;
+        let token = self.peek();
+        self.match_tokens(vec![TokenKind::Const, TokenKind::Mut]);
 
-        let constant = if self.is_curr(TokenKind::Optional) {
-            self.next();
-            true
-        } else {
-            false
+        let constant = match token.kind.clone() {
+            TokenKind::Mut => false,
+            TokenKind::Const => true,
+            _ => unreachable!()
         };
 
         let name = self.eat(TokenKind::Identifier)?;
@@ -448,7 +479,7 @@ impl Parser {
 
             if self.peek().kind == TokenKind::As {
                 self.eat(TokenKind::As)?;
-                let casted = self.primary()?; 
+                let casted = self.cast()?; 
                 let expression = CastExpression::new(typing, Box::new(casted));
                 return Ok(Expression::Cast(expression));
             } else {
@@ -488,6 +519,23 @@ impl Parser {
             }
             TokenKind::Identifier => {
                 self.cast()
+            }
+            TokenKind::LeftBrace => {
+                let open = self.eat(TokenKind::LeftBrace)?;
+                let mut values: Vec<Expression> = vec![];
+
+                while self.peek().kind != TokenKind::RightBrace {
+                    values.push(self.expression()?);
+
+                    if self.peek().kind != TokenKind::RightBrace {
+                        self.eat(TokenKind::Comma)?;
+                    }
+                }
+
+                let close = self.eat(TokenKind::RightBrace)?;
+                let expr = ObjectExpression::new(open, values, close);
+                
+                Ok(Expression::Object(expr)) 
             }
             TokenKind::Eof => Err("unexpected end of input.".to_string()),
             _ => Err(format!(

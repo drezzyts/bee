@@ -19,7 +19,7 @@ impl Token {
     let keywords: HashMap<&str, TokenKind> = HashMap::from([
       // Keywords
 
-      ("class", TokenKind::Class),
+      ("struct", TokenKind::Struct),
       ("else", TokenKind::Else),
       ("false", TokenKind::False),
       ("fun", TokenKind::Fun),
@@ -28,10 +28,10 @@ impl Token {
       ("nil", TokenKind::Nil),
       ("echo", TokenKind::Echo),
       ("return", TokenKind::Return),
-      ("super", TokenKind::Super),
       ("this", TokenKind::This),
       ("true", TokenKind::True),
       ("mut", TokenKind::Mut),
+      ("const", TokenKind::Const),
       ("while", TokenKind::While),
     ]);
 
@@ -101,7 +101,7 @@ pub enum TokenKind {
     Integer,
 
     // Keywords.
-    Class,
+    Struct,
     Else,
     False,
     Fun,
@@ -110,9 +110,9 @@ pub enum TokenKind {
     Nil,
     Echo,
     Return,
-    Super,
     This,
     True,
+    Const,
     Mut,
     While,
 

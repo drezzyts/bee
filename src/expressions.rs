@@ -15,7 +15,8 @@ pub enum Expression {
     Assignment(AssignmentExpression),
     Logical(LogicalExpression),
     Call(CallExpression),
-    Cast(CastExpression)
+    Cast(CastExpression),
+    Object(ObjectExpression)
 }
 
 
@@ -62,7 +63,8 @@ impl Expression {
             }
             Expression::Cast(expr) => {
                 expr.typing.position.clone()
-            }
+            },
+            Expression::Object(expr) => expr.open.position.clone()
         }
     }
 
@@ -78,6 +80,7 @@ impl Expression {
             (Expression::Logical(_), Expression::Logical(_)) => true,
             (Expression::Call(_), Expression::Call(_)) => true,
             (Expression::Cast(_), Expression::Cast(_)) => true,
+            (Expression::Object(_), Expression::Object(_)) => true,
             _ => false
         }
     }
@@ -92,7 +95,8 @@ impl Expression {
             Expression::Assignment(_) => "Assignment",
             Expression::Logical(_) => "Logical",
             Expression::Call(_) => "Call",
-            Expression::Cast(_) => "Cast"
+            Expression::Cast(_) => "Cast",
+            Expression::Object(_) => "Object"
         }
     }
 }
@@ -108,6 +112,7 @@ impl<T> ExpressionVisitable<T> for Expression {
             Expression::Logical(expr) => visitor.visit_logical_expr(expr),
             Expression::Call(expr) => visitor.visit_call_expr(expr),
             Expression::Cast(expr) => visitor.visit_cast_expr(expr),
+            Expression::Object(expr) => visitor.visit_obj_expr(expr)
         }
     }
 }
@@ -126,7 +131,12 @@ pub enum LiteralValue {
         arity: usize, 
         name: String, 
         fun: Rc<dyn Fn(Vec<LiteralValue>) -> LiteralValue> 
-    }
+    },
+    Struct {
+        name: String,
+        properties: Vec<String>
+    },
+    Object(Vec<LiteralValue>)
 }
 
 impl Debug for LiteralValue {
@@ -140,7 +150,17 @@ impl Debug for LiteralValue {
             Self::False => write!(f, "False"),
             Self::Nil => write!(f, "Nil"),
             Self::NaN => write!(f, "NaN"),
-            Self::Callable { arity, name, fun: _ } => write!(f, "{name}:{arity}")
+            Self::Callable { arity, name, fun: _ } => write!(f, "{name}:{arity}"),
+            Self::Struct { name, properties: _ } => write!(f, "{name}"),
+            Self::Object(values) => {
+                let val: Vec<String> = values.iter().map(|p| -> String {
+                    p.to_string()
+                }).collect();
+
+                let content = String::from("{") + val.join(", ").as_str() + "}";
+
+                write!(f, "{}", content)
+            }
         }
     }
 }
@@ -156,7 +176,17 @@ impl fmt::Display for LiteralValue {
             Self::False => write!(f, "False"),
             Self::Nil => write!(f, "Nil"),
             Self::NaN => write!(f, "NaN"),
-            Self::Callable { arity, name, fun: _ } => write!(f, "{name}:{arity}")
+            Self::Callable { arity, name, fun: _ } => write!(f, "{name}:{arity}"),
+            Self::Struct { name, properties: _ } => write!(f, "{name}"),
+            Self::Object(values) => {
+                let val: Vec<String> = values.iter().map(|p| -> String {
+                    p.to_string()
+                }).collect();
+
+                let content = String::from("{") + val.join(", ").as_str() + "}";
+
+                write!(f, "{}", content)
+            }
         }
     }
 }
@@ -188,6 +218,7 @@ impl LiteralValue {
 
     pub fn cast_int(&self) -> Result<LiteralValue, String> {
         match self {
+            LiteralValue::Integer(_) => Ok(self.clone()),
             LiteralValue::Float(v) => Ok(LiteralValue::Integer(v.clone() as i64)),
             LiteralValue::True => Ok(LiteralValue::Integer(1)),
             LiteralValue::False => Ok(LiteralValue::Integer(0)),
@@ -197,6 +228,7 @@ impl LiteralValue {
 
     pub fn cast_float(&self) -> Result<LiteralValue, String> {
         match self {
+            LiteralValue::Float(_) => Ok(self.clone()),
             LiteralValue::Integer(v) => Ok(LiteralValue::Float(v.clone() as f64)),
             LiteralValue::True => Ok(LiteralValue::Float(1.0)),
             LiteralValue::False => Ok(LiteralValue::Float(0.0)),
@@ -206,6 +238,7 @@ impl LiteralValue {
 
     pub fn cast_bool(&self) -> Result<LiteralValue, String> {
         match self {
+            LiteralValue::True | LiteralValue::False=> Ok(self.clone()),
             LiteralValue::Integer(v) => {
                 if v.clone() == 0 {
                     Ok(LiteralValue::False)
@@ -213,7 +246,6 @@ impl LiteralValue {
                     Ok(LiteralValue::True)
                 }
             },
-            LiteralValue::True | LiteralValue::False=> Ok(self.clone()),
             _ => Err(format!("cannot cast this type to 'bool'"))
         }
     }
@@ -498,5 +530,18 @@ pub struct CastExpression {
 impl CastExpression {
     pub fn new(typing: Token, casted: Box<Expression>) -> Self {
         Self { typing, casted }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ObjectExpression {
+    pub open: Token,
+    pub values: Vec<Expression>,
+    pub close: Token,
+}
+
+impl ObjectExpression {
+    pub fn new(open: Token, values: Vec<Expression>, close: Token) -> Self {
+        Self { values, open, close }
     }
 }

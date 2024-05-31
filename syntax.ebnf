@@ -1,11 +1,14 @@
 program = declaration* EOF ;
 
-declaration = func_declaration | var_declaration | statement;
+declaration = struct_declaration | func_declaration | var_declaration | statement;
+struct_declaration = "struct" struct;
+struct = IDENTIFIER "{" property* "}" ;
+property = "mut"? IDENTIFIER "::" IDENTIFIER ","? ;
 func_declaration = "fun" function ;
 function = IDENTIFIER "(" parameters? ")" ( "::" IDENTIFIER )? ;
 parameters = param ( "," param )* ;
 param = IDENTIFIER "::" IDENTIFIER ;
-var_declaration = "mut" "?"? IDENTIFIER ( "::" IDENTIFIER )? ( "=" expression )? ";" ; 
+var_declaration = ("mut" | "const") IDENTIFIER ( "::" IDENTIFIER )? ( "=" expression )? ";" ; 
 
 statement = expression_statement | echo_statement | block_statement | 
   if_statement | for_statement | while_statement | return_statement ;
@@ -31,4 +34,5 @@ call = cast ;
 cast = primary ( "::" IDENTIFIER )* ;
 primary = NUMBER | STRING | "true" | "false" | "nil" | group | IDENTIFIER ;
 group = "(" expression ")" ;
+object = "{" (expression "," )* "}" ;
 arguments = expression ( "," expression )* ;

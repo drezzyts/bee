@@ -4,9 +4,9 @@ use crate::{
     enviroment::TypeEnviroment,
     error::BeeError,
     expressions::{
-        AssignmentExpression, BinaryExpression, CallExpression, CastExpression, Expression, LiteralExpression, LiteralValue, LogicalExpression, VariableExpression
+        AssignmentExpression, BinaryExpression, CallExpression, CastExpression, Expression, LiteralExpression, LiteralValue, LogicalExpression, ObjectExpression, VariableExpression
     },
-    statements::{BlockStatement, FunctionStatement, IfStatement, ReturnStatement, Statement, VariableStatement, WhileStatement},
+    statements::{BlockStatement, FunctionStatement, IfStatement, ReturnStatement, Statement, StructProperty, StructStatement, VariableStatement, WhileStatement},
     token::TokenKind,
 };
 
@@ -58,6 +58,44 @@ impl FunctionType {
 }
 
 #[derive(PartialEq, Eq, Debug, Clone)]
+pub struct StructPropertyType {
+    pub name: String,
+    pub typing: Type,
+    pub constant: bool,
+}
+
+#[derive(PartialEq, Eq, Debug, Clone)]
+pub struct StructType {
+    pub name: String,
+    pub properties: Vec<StructPropertyType>
+}
+
+impl StructType {
+    pub fn new(name: String, properties: Vec<StructPropertyType>) -> Self {
+        Self { name, properties }
+    }
+
+    pub fn prototype(&self) -> String {
+        let props: Vec<String> = self.properties.iter().map(|p| {
+            p.typing.to_string()
+        }).collect();
+        
+        let content = String::from("{") + format!("{}", props.join(", ")).as_str() + "}";
+        content
+    }
+
+    pub fn to_string(&self) -> String {
+        self.name.clone() + " " + self.prototype().as_str()
+    }
+}
+
+impl StructPropertyType {
+    pub fn new(name: String, typing: Type, constant: bool) -> Self {
+        Self { name, typing, constant }
+    }
+}
+
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub enum Type {
     Str,
     Int,
@@ -65,7 +103,9 @@ pub enum Type {
     Char,
     Untyped,
     Bool,
-    Function(FunctionType)
+    Function(FunctionType),
+    Struct(StructType),
+    Object(Vec<Type>)
 }
 
 impl Type {
@@ -78,6 +118,12 @@ impl Type {
             Type::Untyped => "untyped".to_string(),
             Type::Bool => "bool".to_string(),
             Type::Function(f) => f.clone().to_string(),
+            Type::Struct(s) => s.clone().to_string(),
+            Type::Object(v) => {
+                let values: Vec<String> = v.iter().map(|p| -> String {p.to_string()}).collect();
+                let content = String::from("{") + values.join(", ").as_str() + "}";
+                content
+            },
         }
     }
 
@@ -87,7 +133,7 @@ impl Type {
 }
 
 pub struct TypeChecker {
-    source: String,
+    pub source: String,
     types: HashMap<String, Type>
 }
 
@@ -120,8 +166,39 @@ impl TypeChecker {
             Statement::If(v) => self.if_stmt(v, env),
             Statement::While(v) => self.while_stmt(v, env),
             Statement::Function(v) => self.function_stmt(v, env),
+            Statement::Struct(v) => self.struct_stmt(v, env),
             _ => unimplemented!(),
         }
+    }
+
+    fn struct_stmt(&mut self, stmt: &StructStatement, env: &mut TypeEnviroment) -> Result<Type, BeeError> {
+        let name = stmt.name.lexeme.clone();
+        let mut properties: Vec<StructPropertyType> = vec![];
+
+        for prop in stmt.properties.clone() {
+            let typing = match self.to_type(&prop.typing.lexeme) {
+                Ok(r) => r,
+                Err(message) => {
+                    return Err(BeeError::report(
+                        &prop.typing.position,
+                        message.as_str(),
+                        "type-checker",
+                        self.source.clone()
+                    ))
+                }
+            };
+
+            let property = StructPropertyType::new(prop.name.lexeme, typing, prop.constant);
+            properties.push(property);
+        }
+
+        let struct_t = StructType::new(name.clone(), properties);
+        let typing = Type::Struct(struct_t);
+
+        self.types.insert(name.clone(), typing.clone());
+        env.define(name, true, typing);
+
+        Ok(Type::Untyped)
     }
 
     fn function_stmt(&mut self, stmt: &FunctionStatement, env: &mut TypeEnviroment) -> Result<Type, BeeError> {
@@ -206,7 +283,6 @@ impl TypeChecker {
         }
 
         let t = Type::Function(func.clone());
-        self.types.insert(func.name.clone(), t.clone());
         env.define(func.name, true, t);
 
         Ok(Type::Untyped)
@@ -274,6 +350,17 @@ impl TypeChecker {
         stmt: &VariableStatement,
         env: &mut TypeEnviroment,
     ) -> Result<Type, BeeError> {
+        if stmt.constant && stmt.initializer.is_none() {
+            let error = BeeError::report(
+                &stmt.name.position,
+                "an constant variable must be initialized.",
+                "type-checker",
+                self.source.clone(),
+            );
+
+            return Err(error);
+        }
+
         if let Some(token_t) = &stmt.typing {
             let expected_typing = match self.to_type(&token_t.lexeme) {
                 Ok(t) => t,
@@ -322,9 +409,11 @@ impl TypeChecker {
                     return Ok(inferred_typing);
                 }
                 None => {
+                    let message = "an variable that hasn't initialized must have a type declaration.";
+
                     let error = BeeError::report(
                         &stmt.name.position,
-                        "an variable that hasn't initialized must have a type declaration.",
+                        message,
                         "type-checker",
                         self.source.clone(),
                     );
@@ -348,8 +437,20 @@ impl TypeChecker {
                 Ok(name) => Ok(self.to_type(&name).unwrap()),
                 Err(err) => Err(err) 
             },
+            Expression::Object(expr) => self.object(expr, env),
             _ => unimplemented!(),
         }
+    }
+
+    fn object(&self, expr: &ObjectExpression, env: &mut TypeEnviroment) -> Result<Type, BeeError> {
+        let mut values: Vec<Type> = vec![];
+
+        for expression in expr.values.clone() {
+            values.push(self.infer(&expression, env)?);
+        }
+
+        let typing = Type::Object(values);
+        Ok(typing)
     }
 
     fn call(&self, expr: &CallExpression, env: &mut TypeEnviroment) -> Result<String, BeeError> {
@@ -491,13 +592,13 @@ impl TypeChecker {
         };
 
         let value = self.infer(&expr.casted, env)?;
-        let allowed_casts = self.get_type_cast_allowed_types(value.clone());
+        let allowed = self.is_allowed_cast(&value, &typing);
 
         if typing.equals(&value) {
             return Ok(value);
         }
 
-        if !allowed_casts.contains(&typing) {
+        if !allowed {
             let error = BeeError::report(
                 &Expression::position(*expr.casted.clone()),
                 format!(
@@ -521,7 +622,7 @@ impl TypeChecker {
         expr: &AssignmentExpression,
         env: &mut TypeEnviroment,
     ) -> Result<Type, BeeError> {
-        let expected_typing = match env.lookup(expr.name.lexeme.clone()) {
+        let variable = match env.resolve(expr.name.lexeme.clone()) {
             Ok(v) => v,
             Err(message) => {
                 let pos = Expression::position(*expr.value.clone());
@@ -533,6 +634,16 @@ impl TypeChecker {
             }
         };
 
+        if variable.constant {
+            return Err(BeeError::report(
+                &expr.name.position,
+                "attempt to reasign a constant variable.",
+                "type-checker",
+                self.source.clone()
+            ));
+        }
+
+        let expected_typing = variable.value;
         let inferred_typing = self.infer(&expr.value, env)?;
 
         match self.expects(&inferred_typing, &expected_typing) {
@@ -624,17 +735,29 @@ impl TypeChecker {
         }
     }
 
-    fn get_type_cast_allowed_types(&self, cast: Type) -> Vec<Type> {
-        let allowed = match cast {
-            Type::Str => vec![],
-            Type::Int => vec![Type::Str, Type::Float, Type::Bool],
-            Type::Float => vec![Type::Int, Type::Str],
-            Type::Char => vec![Type::Str],
-            Type::Bool => vec![Type::Int, Type::Float, Type::Str],
-            _ => vec![],
+    fn is_allowed_cast(&self, current: &Type, expected: &Type) -> bool {
+        if Type::equals(current, expected) {
+            return true;
         };
 
-        allowed
+        let int_to = vec![Type::Str, Type::Float, Type::Bool];
+        let float_to = vec![Type::Str, Type::Int];
+        let bool_to = vec![Type::Int, Type::Float];
+        
+        // type => to
+        match current {
+            Type::Int => int_to.contains(expected),
+            Type::Float => float_to.contains(expected),
+            Type::Bool => bool_to.contains(expected),
+            Type::Object(_) => {
+              if let Type::Struct(s) = expected {
+                return s.prototype() == current.to_string();
+              }
+
+              false
+            },
+            _ => false
+        }
     }
 
     fn validate_binary_operation_type(
