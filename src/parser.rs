@@ -47,10 +47,6 @@ impl Parser {
         Ok(statements)
     }
 
-    fn synchronize(&mut self) -> () {
-        todo!()
-    }
-
     fn declaration(&mut self) -> Result<Statement, String> {
         let result = match self.peek().kind {
             TokenKind::Fun => self.fun_declaration("function"),
@@ -475,20 +471,39 @@ impl Parser {
 
     fn cast(&mut self) -> Result<Expression, String> {
         if self.peek().kind == TokenKind::Identifier {
-            let typing = self.eat(TokenKind::Identifier)?;
-
-            if self.peek().kind == TokenKind::As {
+            if self.tokens[self.current+1].kind == TokenKind::As {
+                let typing = self.eat(TokenKind::Identifier)?;
                 self.eat(TokenKind::As)?;
                 let casted = self.cast()?; 
                 let expression = CastExpression::new(typing, Box::new(casted));
                 return Ok(Expression::Cast(expression));
-            } else {
-                let expression = VariableExpression::new(typing);
-                return Ok(Expression::Variable(expression))
             }
         }
 
-        self.primary()
+        self.get()
+    }
+
+    fn get(&mut self) -> Result<Expression, String> {
+        let left = if self.peek().kind == TokenKind::Identifier {
+            self.variable()?
+        } else {
+            self.primary()?
+        };
+
+        if self.peek().kind == TokenKind::Dot {
+            self.eat(TokenKind::Dot)?;
+            let right = self.get()?;
+            let expr = GetExpression::new(right, left);
+            return Ok(Expression::Get(expr));
+        }
+
+        Ok(left)
+    }
+
+    fn variable(&mut self) -> Result<Expression, String> {
+        let identifier = self.eat(TokenKind::Identifier)?;
+        let expression = VariableExpression::new(identifier);
+        Ok(Expression::Variable(expression))
     }
 
     fn primary(&mut self) -> Result<Expression, String> {
@@ -516,9 +531,6 @@ impl Parser {
                 let right: Token = self.eat(TokenKind::RightParen)?;
                 let expression = GroupExpression::new(left, Box::new(expr), right);
                 Ok(Expression::Group(expression))
-            }
-            TokenKind::Identifier => {
-                self.cast()
             }
             TokenKind::LeftBrace => {
                 let open = self.eat(TokenKind::LeftBrace)?;

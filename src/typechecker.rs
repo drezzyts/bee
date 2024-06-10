@@ -4,7 +4,7 @@ use crate::{
     enviroment::TypeEnviroment,
     error::BeeError,
     expressions::{
-        AssignmentExpression, BinaryExpression, CallExpression, CastExpression, Expression, LiteralExpression, LiteralValue, LogicalExpression, ObjectExpression, VariableExpression
+        AssignmentExpression, BinaryExpression, CallExpression, CastExpression, Expression, GetExpression, LiteralExpression, LiteralValue, LogicalExpression, ObjectExpression, VariableExpression
     },
     statements::{BlockStatement, FunctionStatement, IfStatement, ReturnStatement, Statement, StructProperty, StructStatement, VariableStatement, WhileStatement},
     token::TokenKind,
@@ -67,12 +67,13 @@ pub struct StructPropertyType {
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct StructType {
     pub name: String,
-    pub properties: Vec<StructPropertyType>
+    pub properties: Vec<StructPropertyType>,
+    pub env: TypeEnviroment,
 }
 
 impl StructType {
-    pub fn new(name: String, properties: Vec<StructPropertyType>) -> Self {
-        Self { name, properties }
+    pub fn new(name: String, properties: Vec<StructPropertyType>, env: TypeEnviroment) -> Self {
+        Self { name, properties, env }
     }
 
     pub fn prototype(&self) -> String {
@@ -127,6 +128,20 @@ impl Type {
         }
     }
 
+    pub fn primitive(&self) -> String {
+        match self {
+            Type::Str => "Str".to_string(),
+            Type::Int => "Int".to_string(),
+            Type::Float => "Float".to_string(),
+            Type::Char => "Char".to_string(),
+            Type::Untyped => "Untyped".to_string(),
+            Type::Bool => "Bool".to_string(),
+            Type::Function(_) => "Function".to_string(),
+            Type::Struct(_) => "Struct".to_string(),
+            Type::Object(_) => "Object".to_string(),
+        }
+    }
+
     pub fn equals(&self, other: &Type) -> bool {
         self.to_string() == other.to_string()
     }
@@ -174,6 +189,7 @@ impl TypeChecker {
     fn struct_stmt(&mut self, stmt: &StructStatement, env: &mut TypeEnviroment) -> Result<Type, BeeError> {
         let name = stmt.name.lexeme.clone();
         let mut properties: Vec<StructPropertyType> = vec![];
+        let mut struct_env = TypeEnviroment::new();
 
         for prop in stmt.properties.clone() {
             let typing = match self.to_type(&prop.typing.lexeme) {
@@ -189,10 +205,11 @@ impl TypeChecker {
             };
 
             let property = StructPropertyType::new(prop.name.lexeme, typing, prop.constant);
-            properties.push(property);
+            properties.push(property.clone());
+            struct_env.define(property.name, true, property.typing);
         }
 
-        let struct_t = StructType::new(name.clone(), properties);
+        let struct_t = StructType::new(name.clone(), properties, struct_env);
         let typing = Type::Struct(struct_t);
 
         self.types.insert(name.clone(), typing.clone());
@@ -438,8 +455,30 @@ impl TypeChecker {
                 Err(err) => Err(err) 
             },
             Expression::Object(expr) => self.object(expr, env),
+            Expression::Get(expr) => self.get(expr, env),
             _ => unimplemented!(),
         }
+    }
+
+    fn get(&self, expr: &GetExpression, env: &mut TypeEnviroment) -> Result<Type, BeeError> {
+        let left = self.infer(&expr.left, env)?;
+
+        let mut struct_env = if let Type::Struct(value) = left {
+            value.env
+        } else {
+            let error = BeeError::report(
+                &Expression::position(*expr.left.clone()),
+                "getting a key of a value that is not a struct.",
+                "type-checker",
+                self.source.clone(),
+            );
+
+            return Err(error);
+        };
+
+        let right = self.infer(&expr.right, &mut struct_env)?;
+
+        Ok(right)
     }
 
     fn object(&self, expr: &ObjectExpression, env: &mut TypeEnviroment) -> Result<Type, BeeError> {

@@ -248,7 +248,24 @@ impl ExpressionVisitor<Result<LiteralValue, BeeError>> for Interpreter {
             "int" => to_cast.cast_int(),
             "float" => to_cast.cast_float(),
             "bool" => to_cast.cast_bool(),
-            _ => Ok(to_cast)
+            _ => {
+                if let Ok(value) = self.enviroment.borrow().get(cast_type) {
+                    if let (LiteralValue::Struct { name, properties }, LiteralValue::Object(values)) = (value, to_cast.clone()) {
+                        let mut i = 0;
+                        let mut props: Vec<(String, LiteralValue)> = vec![];
+                        
+                        for value in values {
+                            props.push((properties[i].clone(), value));
+                            i += 1;
+                        };
+
+                        let instance = LiteralValue::Instance { typing: name, properties: props };
+                        return Ok(instance);
+                    }
+                }   
+                
+                Ok(to_cast)
+            }
         };
 
         Ok(res.unwrap())
@@ -264,6 +281,23 @@ impl ExpressionVisitor<Result<LiteralValue, BeeError>> for Interpreter {
 
         let value = LiteralValue::Object(values);
         Ok(value)
+    }
+    
+    fn visit_get_expr(&mut self, expr: &GetExpression) -> Result<LiteralValue, BeeError> {
+        let left = self.evaluate(*expr.left.clone())?;
+        
+        if let LiteralValue::Instance { typing: _, properties } = left {
+            match *expr.right.clone() {
+                Expression::Get(expr) => self.visit_get_expr(&expr),
+                Expression::Variable(expr) => {
+                    let (_, value) = properties.iter().find(|(name, _)| name.clone() == expr.name.lexeme.clone()).unwrap();
+                    return Ok(value.clone());
+                },
+                _ => unreachable!()
+            }
+        } else {
+            unreachable!()
+        }
     }
 }
 
@@ -299,6 +333,15 @@ impl StatementVisitor<Result<(), BeeError>> for Interpreter {
                 let content = String::from("{") + val.join(", ").as_str() + "}";
                 content
             },
+            LiteralValue::Instance { typing, properties } => {
+                let val: Vec<String> = properties.iter().map(|(name, value)| -> String {
+                    format!("{name}: {}", value.to_string())
+                }).collect();
+
+                let content = String::from("{") + val.join(", ").as_str() + "}";
+
+                format!("{}::{}", typing, content)
+            }
         };
 
         println!("{response}");

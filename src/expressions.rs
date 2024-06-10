@@ -16,7 +16,8 @@ pub enum Expression {
     Logical(LogicalExpression),
     Call(CallExpression),
     Cast(CastExpression),
-    Object(ObjectExpression)
+    Object(ObjectExpression),
+    Get(GetExpression)
 }
 
 
@@ -64,7 +65,8 @@ impl Expression {
             Expression::Cast(expr) => {
                 expr.typing.position.clone()
             },
-            Expression::Object(expr) => expr.open.position.clone()
+            Expression::Object(expr) => expr.open.position.clone(),
+            Expression::Get(expr) => Expression::position(*expr.left),
         }
     }
 
@@ -81,6 +83,7 @@ impl Expression {
             (Expression::Call(_), Expression::Call(_)) => true,
             (Expression::Cast(_), Expression::Cast(_)) => true,
             (Expression::Object(_), Expression::Object(_)) => true,
+            (Expression::Get(_), Expression::Get(_)) => true,
             _ => false
         }
     }
@@ -96,7 +99,8 @@ impl Expression {
             Expression::Logical(_) => "Logical",
             Expression::Call(_) => "Call",
             Expression::Cast(_) => "Cast",
-            Expression::Object(_) => "Object"
+            Expression::Object(_) => "Object",
+            Expression::Get(_) => "Get",
         }
     }
 }
@@ -112,7 +116,8 @@ impl<T> ExpressionVisitable<T> for Expression {
             Expression::Logical(expr) => visitor.visit_logical_expr(expr),
             Expression::Call(expr) => visitor.visit_call_expr(expr),
             Expression::Cast(expr) => visitor.visit_cast_expr(expr),
-            Expression::Object(expr) => visitor.visit_obj_expr(expr)
+            Expression::Object(expr) => visitor.visit_obj_expr(expr),
+            Expression::Get(expr) => visitor.visit_get_expr(expr)
         }
     }
 }
@@ -136,7 +141,11 @@ pub enum LiteralValue {
         name: String,
         properties: Vec<String>
     },
-    Object(Vec<LiteralValue>)
+    Object(Vec<LiteralValue>),
+    Instance {
+        typing: String,
+        properties: Vec<(String, LiteralValue)>
+    }
 }
 
 impl Debug for LiteralValue {
@@ -160,6 +169,15 @@ impl Debug for LiteralValue {
                 let content = String::from("{") + val.join(", ").as_str() + "}";
 
                 write!(f, "{}", content)
+            }
+            Self::Instance { typing, properties } => {
+                let val: Vec<String> = properties.iter().map(|(name, value)| -> String {
+                    format!("{name}: {}", value.to_string())
+                }).collect();
+
+                let content = String::from("{") + val.join(", ").as_str() + "}";
+
+                write!(f, "{}::{}", typing, content)
             }
         }
     }
@@ -186,6 +204,15 @@ impl fmt::Display for LiteralValue {
                 let content = String::from("{") + val.join(", ").as_str() + "}";
 
                 write!(f, "{}", content)
+            }
+            Self::Instance { typing, properties } => {
+                let val: Vec<String> = properties.iter().map(|(name, value)| -> String {
+                    format!("{name}: {}", value.to_string())
+                }).collect();
+
+                let content = String::from("{") + val.join(", ").as_str() + "}";
+
+                write!(f, "{}::{}", typing, content)
             }
         }
     }
@@ -543,5 +570,17 @@ pub struct ObjectExpression {
 impl ObjectExpression {
     pub fn new(open: Token, values: Vec<Expression>, close: Token) -> Self {
         Self { values, open, close }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct GetExpression {
+    pub right: Box<Expression>,
+    pub left: Box<Expression>
+}
+
+impl GetExpression {
+    pub fn new(right: Expression, left: Expression) -> Self {
+        Self { right: Box::new(right), left: Box::new(left) }
     }
 }

@@ -11,6 +11,7 @@ pub trait ExpressionVisitor<T> {
     fn visit_call_expr(&mut self, expr: &CallExpression) -> T;
     fn visit_cast_expr(&mut self, expr: &CastExpression) -> T;
     fn visit_obj_expr(&mut self, expr: &ObjectExpression) -> T;
+    fn visit_get_expr(&mut self, expr: &GetExpression) -> T;
 }
 
 pub trait ExpressionVisitable<T> {
