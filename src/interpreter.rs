@@ -218,7 +218,7 @@ impl ExpressionVisitor<Result<LiteralValue, BeeError>> for Interpreter {
                     return Err(BeeError::report(
                         &Expression::position(*expr.callee.clone()),
                         format!(
-                            "{name} function expected {arity} arguments, but has founded only {}",
+                            "{name} function expected {arity} arguments, but has found only {}",
                             arguments.len()
                         )
                         .as_str(),

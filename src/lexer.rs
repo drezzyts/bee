@@ -297,7 +297,7 @@ impl Lexer {
         }
 
         if self.is_eof() {
-            return Err("unterminated string founded while lexing".to_string());
+            return Err("unterminated string found while lexing".to_string());
         }
 
         self.next();
@@ -312,17 +312,17 @@ impl Lexer {
 
     fn read_char(&mut self) -> Result<(), String> {
         if self.is_eof() {
-            return Err("unterminated char founded while lexing.".to_string());
+            return Err("unterminated char found while lexing.".to_string());
         }
 
         let char = self.next();
 
         if char == '\'' {
-            return Err("empty char founded while lexing.".to_string());
+            return Err("empty char found while lexing.".to_string());
         }
 
         if self.next() != '\'' {
-            return Err("unterminated char founded while lexing.".to_string());
+            return Err("unterminated char found while lexing.".to_string());
         };
 
         let value = TokenLiteralValue::Char(char);

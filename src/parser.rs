@@ -322,7 +322,7 @@ impl Parser {
                     return Ok(Expression::Assignment(assignment));
                 }
                 _ => {
-                    return Err("invalid assignment target has founded while parsing.".to_string());
+                    return Err("invalid assignment target has found while parsing.".to_string());
                 }
             }
         }
@@ -551,7 +551,7 @@ impl Parser {
             }
             TokenKind::Eof => Err("unexpected end of input.".to_string()),
             _ => Err(format!(
-                "invalid token has founded while parsing: {:?}",
+                "invalid token has found while parsing: {:?}",
                 self.peek().kind
             )),
         }
@@ -590,12 +590,12 @@ impl Parser {
             Ok(self.next())
         } else if self.peek().kind == TokenKind::Eof {
             Err(format!(
-                "unexpected end of input founded while parsing\n ~ expected {:?}",
+                "unexpected end of input found while parsing\n ~ expected {:?}",
                 kind
             ))
         } else {
             Err(format!(
-                "unexpected token founded while parsing\n ~ expected {:?}, founded {:?}",
+                "unexpected token found while parsing\n ~ expected {:?}, found {:?}",
                 kind,
                 self.peek().kind
             ))
